@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Post,
@@ -6,7 +7,6 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
-  Body,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -33,7 +33,6 @@ export class DocumentsController {
       role: body.role,
       type: body.type,
       fileUrl,
-      originalName: file.originalname,
     });
   }
 
