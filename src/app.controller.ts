@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get } from "@nestjs/common";
 
 @Controller()
 export class AppController {
@@ -6,8 +6,14 @@ export class AppController {
   getRoot() {
     return {
       success: true,
-      message: 'InDajy API is running 🚀',
-      version: '1.0.0',
+      message: "InDajy API is running 🚀",
+    };
+  }
+
+  @Get("health")
+  getHealth() {
+    return {
+      status: "ok",
     };
   }
 }

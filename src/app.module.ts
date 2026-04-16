@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { AppController } from './app.controller';
+import { AppController } from "./app.controller";
 import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -11,7 +11,6 @@ import { UploadModule } from "./upload/upload.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { StatsModule } from "./stats/stats.module";
 import { ChatModule } from "./chat/chat.module";
-
 
 @Module({
   imports: [
@@ -28,6 +27,5 @@ import { ChatModule } from "./chat/chat.module";
     ChatModule,
   ],
   controllers: [AppController],
-  providers: [],
 })
 export class AppModule {}
