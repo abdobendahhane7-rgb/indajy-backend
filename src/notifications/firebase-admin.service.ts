@@ -25,15 +25,20 @@ export class FirebaseAdminService {
       return;
     }
 
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId,
-        clientEmail,
-        privateKey,
-      }),
-    });
+    try {
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId,
+          clientEmail,
+          privateKey,
+        }),
+      });
 
-    this.initialized = true;
+      this.initialized = true;
+    } catch (error) {
+      console.error("Firebase Admin init failed:", error);
+      this.initialized = false;
+    }
   }
 
   get isReady() {
