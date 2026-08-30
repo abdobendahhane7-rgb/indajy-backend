@@ -13,6 +13,16 @@ import { UpdateListingDto } from "./dto/update-listing.dto";
 export class ListingsService {
   constructor(private prisma: PrismaService) {}
 
+  private allowedProducts = [
+    "الدجاج الرومي",
+    "الديك الرومي",
+    "رومي أبيض",
+    "رومي أسود",
+    "رومي محلي",
+    "Big-6",
+    "Hybrid Converter",
+  ];
+
   private roundTo2(value: number) {
     return Number(value.toFixed(2));
   }
@@ -46,6 +56,20 @@ export class ListingsService {
     return (value * Math.PI) / 180;
   }
 
+  private validateTurkeyProduct(category?: string, variant?: string) {
+    const validCategory = category
+      ? this.allowedProducts.includes(category)
+      : true;
+
+    const validVariant = variant
+      ? this.allowedProducts.includes(variant)
+      : true;
+
+    if (!validCategory || !validVariant) {
+      throw new BadRequestException("Only turkey products are allowed");
+    }
+  }
+
   async createListing(userId: string, dto: CreateListingDto) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -56,7 +80,7 @@ export class ListingsService {
     }
 
     if (user.role !== UserRole.FARMER) {
-      throw new ForbiddenException("Only farmers can create listings");
+      throw new ForbiddenException("Only breeders can create listings");
     }
 
     if (user.approvalStatus !== ApprovalStatus.APPROVED) {
@@ -66,6 +90,8 @@ export class ListingsService {
     if (dto.quantityKg <= 0 || dto.pricePerKg <= 0) {
       throw new BadRequestException("Quantity and price must be greater than 0");
     }
+
+    this.validateTurkeyProduct(dto.category, dto.variant);
 
     const totalStockValue = this.calculateTotalStockValue(
       dto.quantityKg,
@@ -115,6 +141,14 @@ export class ListingsService {
     longitude?: number;
     maxDistanceKm?: number;
   }) {
+    if (query.category) {
+      this.validateTurkeyProduct(query.category, undefined);
+    }
+
+    if (query.variant) {
+      this.validateTurkeyProduct(undefined, query.variant);
+    }
+
     const listings = await this.prisma.listing.findMany({
       where: {
         status: ListingStatus.ACTIVE,
@@ -209,7 +243,11 @@ export class ListingsService {
     return listing;
   }
 
-  async updateMyListing(userId: string, listingId: string, dto: UpdateListingDto) {
+  async updateMyListing(
+    userId: string,
+    listingId: string,
+    dto: UpdateListingDto,
+  ) {
     const listing = await this.prisma.listing.findUnique({
       where: { id: listingId },
     });
@@ -222,9 +260,14 @@ export class ListingsService {
       throw new ForbiddenException("You cannot update this listing");
     }
 
+    this.validateTurkeyProduct(dto.category, dto.variant);
+
     const quantityKg = dto.quantityKg ?? listing.quantityKg;
     const pricePerKg = dto.pricePerKg ?? Number(listing.pricePerKg);
-    const totalStockValue = this.calculateTotalStockValue(quantityKg, pricePerKg);
+    const totalStockValue = this.calculateTotalStockValue(
+      quantityKg,
+      pricePerKg,
+    );
 
     let nextStatus = listing.status;
 

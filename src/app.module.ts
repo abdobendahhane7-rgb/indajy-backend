@@ -4,7 +4,6 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { DocumentsModule } from "./documents/documents.module";
-import { NotificationsModule } from "./notifications/notifications.module"
 import { FavoritesModule } from "./favorites/favorites.module";;
 import { ListingsModule } from "./listings/listings.module";
 import { OrdersModule } from "./orders/orders.module";
@@ -14,6 +13,7 @@ import { WalletModule } from "./wallet/wallet.module";
 import { ChatModule } from "./chat/chat.module";
 import { AdminModule } from "./admin/admin.module";
 import { TrackingModule } from "./tracking/tracking.module";
+import { RechargeModule } from "./recharge/recharge.module";
 
 @Module({
   imports: [
@@ -24,7 +24,6 @@ import { TrackingModule } from "./tracking/tracking.module";
     AuthModule,
     UsersModule,
     DocumentsModule,
-    NotificationsModule,
     FavoritesModule,
     ListingsModule,
     TrackingModule,
@@ -34,6 +33,7 @@ import { TrackingModule } from "./tracking/tracking.module";
     WalletModule,
     ChatModule,
     AdminModule,
+    RechargeModule,
   ],
 })
 export class AppModule {}

@@ -10,9 +10,12 @@ export class RegisterDto {
   @IsOptional()
   email?: string;
 
+  @IsOptional()
+  city?: string;
+
   @IsString()
   password!: string;
-  
+
   @IsString()
   role!: string;
 }

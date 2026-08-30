@@ -18,11 +18,26 @@ export class AuthService {
   ) {}
 
   async register(body: RegisterDto) {
+    const phone = String(body.phone || "").trim();
+    const email = body.email?.trim() ? body.email.trim() : null;
+    const fullName = String(body.fullName || "").trim();
+    const password = String(body.password || "").trim();
+    const city = body.city?.trim() ? body.city.trim() : null;
+    const role = String(body.role || "").trim() as UserRole;
+
+    if (!fullName || !phone || !password || !role) {
+      throw new BadRequestException("Missing required fields");
+    }
+
+    if (!Object.values(UserRole).includes(role)) {
+      throw new BadRequestException("Invalid role");
+    }
+
     const existingUser = await this.prisma.user.findFirst({
       where: {
         OR: [
-          { phone: body.phone },
-          body.email ? { email: body.email } : {},
+          { phone },
+          ...(email ? [{ email }] : []),
         ],
       },
     });
@@ -31,15 +46,25 @@ export class AuthService {
       throw new BadRequestException("User already exists");
     }
 
-    const passwordHash = await bcrypt.hash(body.password, 10);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const user = await this.prisma.user.create({
       data: {
-        fullName: body.fullName,
-        phone: body.phone,
-        email: body.email,
+        fullName,
+        phone,
+        email,
+        city,
         passwordHash,
-        role: body.role as UserRole,
+        role,
+        wallet: {
+          create: {
+            balance: 0,
+          },
+        },
+      },
+      include: {
+        wallet: true,
+        documents: true,
       },
     });
 
@@ -50,16 +75,23 @@ export class AuthService {
   }
 
   async login(body: LoginDto) {
-    if (!body || !body.identifier || !body.password) {
+    const identifier = String(body.identifier || "").trim();
+    const password = String(body.password || "").trim();
+
+    if (!identifier || !password) {
       throw new BadRequestException("identifier and password are required");
     }
 
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
-          { phone: body.identifier },
-          { email: body.identifier },
+          { phone: identifier },
+          { email: identifier },
         ],
+      },
+      include: {
+        wallet: true,
+        documents: true,
       },
     });
 
@@ -68,7 +100,7 @@ export class AuthService {
     }
 
     const isPasswordValid = await bcrypt.compare(
-      body.password,
+      password,
       user.passwordHash,
     );
 

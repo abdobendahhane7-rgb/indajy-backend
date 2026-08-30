@@ -23,7 +23,7 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Seeding INDAJY...");
 
-  const adminPassword = "Ayman@2026@@";
+  const adminPassword = "Ayman2026";
   const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
   const adminEmail = "aymanmkarti57@gmail.com";
