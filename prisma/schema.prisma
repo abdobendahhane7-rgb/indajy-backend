@@ -50,29 +50,47 @@ model UserDocument {
 }
 
 model Listing {
-  id              String             @id @default(cuid())
-  farmerId        String
-  title           String
-  category        String             @default("الدجاج الرومي")
-  variant         String             @default("الدجاج الرومي")
-  description     String?
-  quantityKg      Float
-  availableKg     Float
-  pricePerKg      Decimal            @db.Decimal(12, 2)
-  totalStockValue Decimal            @db.Decimal(12, 2)
-  city            String
-  address         String?
-  latitude        Float
-  longitude       Float
-  status          ListingStatus      @default(ACTIVE)
-  isGpsEnabled    Boolean            @default(true)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  conversations   ChatConversation[]
-  favorites       Favorite[]
-  farmer          User               @relation("BreederListings", fields: [farmerId], references: [id], onDelete: Cascade)
-  images          ListingImage[]
-  orders          Order[]
+  id       String @id @default(cuid())
+  farmerId String
+  title    String
+
+  category String @default("دجاج اللحم")
+  variant  String @default("دجاج اللحم")
+
+  description String?
+
+  // مثال: 38-40/100
+  netWeight String?
+
+  // الكمية الإجمالية المتوفرة فالفيرمة
+  quantityKg Float
+
+  // الكمية اللي مازال متوفرة للبيع
+  availableKg Float
+
+  pricePerKg      Decimal @db.Decimal(12, 2)
+  totalStockValue Decimal @db.Decimal(12, 2)
+
+  city    String
+  address String?
+
+  latitude  Float
+  longitude Float
+
+  // رابط Google Maps ديال الفيرمة - اختياري
+  farmLink String?
+
+  status       ListingStatus @default(ACTIVE)
+  isGpsEnabled Boolean       @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conversations ChatConversation[]
+  favorites     Favorite[]
+  farmer        User               @relation("BreederListings", fields: [farmerId], references: [id], onDelete: Cascade)
+  images        ListingImage[]
+  orders        Order[]
 
   @@index([farmerId])
   @@index([city])
@@ -90,27 +108,29 @@ model ListingImage {
 }
 
 model Order {
-  id              String          @id @default(cuid())
+  id              String      @id @default(cuid())
   listingId       String
   distributorId   String
   quantityKg      Float
-  pricePerKg      Decimal         @db.Decimal(12, 2)
-  subtotal        Decimal         @db.Decimal(12, 2)
-  operationFee    Decimal         @db.Decimal(12, 2)
-  totalAmount     Decimal         @db.Decimal(12, 2)
+  pricePerKg      Decimal     @db.Decimal(12, 2)
+  subtotal        Decimal     @db.Decimal(12, 2)
+  operationFee    Decimal     @db.Decimal(12, 2)
+  totalAmount     Decimal     @db.Decimal(12, 2)
   deliveryAddress String?
   deliveryCity    String?
   deliveryLat     Float?
   deliveryLng     Float?
   note            String?
-  status          OrderStatus     @default(PENDING)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  status          OrderStatus @default(PENDING)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
   driverId        String?
-  distributor     User            @relation("DistributorOrders", fields: [distributorId], references: [id])
-  driver          User?           @relation("DriverOrders", fields: [driverId], references: [id])
-  listing         Listing         @relation(fields: [listingId], references: [id])
-  tracking        OrderTracking[]
+
+  distributor User    @relation("DistributorOrders", fields: [distributorId], references: [id])
+  driver      User?   @relation("DriverOrders", fields: [driverId], references: [id])
+  listing     Listing @relation(fields: [listingId], references: [id])
+
+  tracking OrderTracking[]
 
   @@index([listingId])
   @@index([distributorId])

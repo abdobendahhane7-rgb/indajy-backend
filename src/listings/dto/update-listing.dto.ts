@@ -1,4 +1,11 @@
-import { IsBoolean, IsNumber, IsOptional, IsString, Min } from "class-validator";
+import {
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export class UpdateListingDto {
   @IsOptional()
@@ -18,18 +25,25 @@ export class UpdateListingDto {
   description?: string;
 
   @IsOptional()
+  @IsString()
+  netWeight?: string;
+
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
-  @Min(0.1)
+  @Min(0.01)
   quantityKg?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   availableKg?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
-  @Min(0.1)
+  @Min(0.01)
   pricePerKg?: number;
 
   @IsOptional()
@@ -41,12 +55,18 @@ export class UpdateListingDto {
   address?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   latitude?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   longitude?: number;
+
+  @IsOptional()
+  @IsString()
+  farmLink?: string;
 
   @IsOptional()
   @IsBoolean()
