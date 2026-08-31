@@ -17,32 +17,16 @@ import { UpdateListingDto } from "./dto/update-listing.dto";
 
 @Injectable()
 export class ListingsService {
-  constructor(
-    private prisma: PrismaService,
-  ) {}
-
-  // =========================================================
-  // ALLOWED PRODUCTS
-  // =========================================================
+  constructor(private prisma: PrismaService) {}
 
   private allowedProducts = [
     "دجاج اللحم",
     "الديك الرومي",
   ];
 
-  // =========================================================
-  // ROUND
-  // =========================================================
-
   private roundTo2(value: number) {
-    return Number(
-      value.toFixed(2),
-    );
+    return Number(value.toFixed(2));
   }
-
-  // =========================================================
-  // TOTAL STOCK VALUE
-  // =========================================================
 
   private calculateTotalStockValue(
     quantityKg: number,
@@ -52,10 +36,6 @@ export class ListingsService {
       quantityKg * pricePerKg,
     );
   }
-
-  // =========================================================
-  // DISTANCE
-  // =========================================================
 
   private calculateDistanceKm(
     lat1: number,
@@ -96,14 +76,8 @@ export class ListingsService {
   }
 
   private toRadians(value: number) {
-    return (
-      (value * Math.PI) / 180
-    );
+    return (value * Math.PI) / 180;
   }
-
-  // =========================================================
-  // PRODUCT VALIDATION
-  // =========================================================
 
   private validateProduct(
     category?: string,
@@ -123,19 +97,12 @@ export class ListingsService {
           )
         : true;
 
-    if (
-      !validCategory ||
-      !validVariant
-    ) {
+    if (!validCategory || !validVariant) {
       throw new BadRequestException(
         "Product must be دجاج اللحم or الديك الرومي",
       );
     }
   }
-
-  // =========================================================
-  // NET WEIGHT VALIDATION
-  // =========================================================
 
   private validateNetWeight(
     netWeight?: string,
@@ -149,18 +116,6 @@ export class ListingsService {
       );
     }
 
-    /*
-      نقبلو مثلا:
-
-      38-40/100
-      40-42/100
-      35/100
-
-      غير كنمنعو النص الفارغ.
-      ما غاديش نفرض regex قوي
-      باش يبقى flexible.
-    */
-
     if (
       netWeight.trim().length > 50
     ) {
@@ -168,6 +123,36 @@ export class ListingsService {
         "Invalid net weight",
       );
     }
+  }
+
+  // =========================================================
+  // HIDE PRIVATE FARM DATA FROM PUBLIC LISTINGS
+  // =========================================================
+
+  private hidePrivateFarmInfo(
+    listing: any,
+  ) {
+    if (!listing) {
+      return listing;
+    }
+
+    return {
+      ...listing,
+
+      address: null,
+      latitude: null,
+      longitude: null,
+      farmLink: null,
+
+      farmer: listing.farmer
+        ? {
+            ...listing.farmer,
+            phone: null,
+            latitude: null,
+            longitude: null,
+          }
+        : null,
+    };
   }
 
   // =========================================================
@@ -208,10 +193,6 @@ export class ListingsService {
       );
     }
 
-    // =======================================================
-    // REQUIRED STOCK
-    // =======================================================
-
     if (
       dto.quantityKg <= 0 ||
       dto.pricePerKg <= 0
@@ -221,36 +202,20 @@ export class ListingsService {
       );
     }
 
-    // =======================================================
-    // PRODUCT
-    // =======================================================
-
     this.validateProduct(
       dto.category,
       dto.variant,
     );
 
-    // =======================================================
-    // NET WEIGHT
-    // =======================================================
-
     this.validateNetWeight(
       dto.netWeight,
     );
-
-    // =======================================================
-    // TOTAL
-    // =======================================================
 
     const totalStockValue =
       this.calculateTotalStockValue(
         dto.quantityKg,
         dto.pricePerKg,
       );
-
-    // =======================================================
-    // CREATE
-    // =======================================================
 
     return this.prisma.listing.create({
       data: {
@@ -271,11 +236,9 @@ export class ListingsService {
         netWeight:
           dto.netWeight.trim(),
 
-        // Total stock in farm
         quantityKg:
           dto.quantityKg,
 
-        // At creation all stock is available
         availableKg:
           dto.quantityKg,
 
@@ -301,8 +264,7 @@ export class ListingsService {
           null,
 
         isGpsEnabled:
-          dto.isGpsEnabled ??
-          true,
+          dto.isGpsEnabled ?? true,
 
         status:
           ListingStatus.ACTIVE,
@@ -327,7 +289,7 @@ export class ListingsService {
   }
 
   // =========================================================
-  // ALL LISTINGS
+  // GET ALL PUBLIC LISTINGS
   // =========================================================
 
   async getAllListings(query: {
@@ -363,8 +325,7 @@ export class ListingsService {
           },
 
           city:
-            query.city ||
-            undefined,
+            query.city || undefined,
 
           category:
             query.category ||
@@ -392,18 +353,20 @@ export class ListingsService {
         },
 
         orderBy: {
-          createdAt:
-            "desc",
+          createdAt: "desc",
         },
       });
 
     if (
-      query.latitude ===
-        undefined ||
-      query.longitude ===
-        undefined
+      query.latitude === undefined ||
+      query.longitude === undefined
     ) {
-      return listings;
+      return listings.map(
+        (listing) =>
+          this.hidePrivateFarmInfo(
+            listing,
+          ),
+      );
     }
 
     const withDistance =
@@ -425,7 +388,8 @@ export class ListingsService {
       );
 
     const filtered =
-      query.maxDistanceKm
+      query.maxDistanceKm !==
+      undefined
         ? withDistance.filter(
             (item) =>
               item.distanceKm <=
@@ -433,15 +397,22 @@ export class ListingsService {
           )
         : withDistance;
 
-    return filtered.sort(
-      (a, b) =>
-        a.distanceKm -
-        b.distanceKm,
-    );
+    return filtered
+      .sort(
+        (a, b) =>
+          a.distanceKm -
+          b.distanceKm,
+      )
+      .map(
+        (listing) =>
+          this.hidePrivateFarmInfo(
+            listing,
+          ),
+      );
   }
 
   // =========================================================
-  // MY LISTINGS
+  // FARMER'S OWN LISTINGS
   // =========================================================
 
   async getMyListings(
@@ -449,8 +420,7 @@ export class ListingsService {
   ) {
     return this.prisma.listing.findMany({
       where: {
-        farmerId:
-          userId,
+        farmerId: userId,
       },
 
       include: {
@@ -458,14 +428,13 @@ export class ListingsService {
       },
 
       orderBy: {
-        createdAt:
-          "desc",
+        createdAt: "desc",
       },
     });
   }
 
   // =========================================================
-  // GET ONE
+  // PUBLIC LISTING BY ID
   // =========================================================
 
   async getListingById(
@@ -500,11 +469,13 @@ export class ListingsService {
       );
     }
 
-    return listing;
+    return this.hidePrivateFarmInfo(
+      listing,
+    );
   }
 
   // =========================================================
-  // UPDATE
+  // UPDATE MY LISTING
   // =========================================================
 
   async updateMyListing(
@@ -526,8 +497,7 @@ export class ListingsService {
     }
 
     if (
-      listing.farmerId !==
-      userId
+      listing.farmerId !== userId
     ) {
       throw new ForbiddenException(
         "You cannot update this listing",
@@ -540,8 +510,7 @@ export class ListingsService {
     );
 
     if (
-      dto.netWeight !==
-      undefined
+      dto.netWeight !== undefined
     ) {
       this.validateNetWeight(
         dto.netWeight,
@@ -679,8 +648,7 @@ export class ListingsService {
     }
 
     if (
-      listing.farmerId !==
-      userId
+      listing.farmerId !== userId
     ) {
       throw new ForbiddenException(
         "You cannot deactivate this listing",
@@ -721,8 +689,7 @@ export class ListingsService {
     }
 
     if (
-      listing.farmerId !==
-      userId
+      listing.farmerId !== userId
     ) {
       throw new ForbiddenException(
         "You cannot delete this listing",
