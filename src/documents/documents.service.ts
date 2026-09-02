@@ -4,7 +4,10 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 
-import { UserRole } from "@prisma/client";
+import {
+  ApprovalStatus,
+  UserRole,
+} from "@prisma/client";
 
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -25,6 +28,7 @@ export class DocumentsService {
       where: {
         userId,
       },
+
       orderBy: {
         createdAt: "desc",
       },
@@ -32,13 +36,17 @@ export class DocumentsService {
   }
 
   // =========================================================
-  // CREATE / UPDATE MY DOCUMENTS
+  // CREATE / REPLACE MY DOCUMENTS
   // =========================================================
 
   async upsertMyDocuments(
     userId: string,
     body: any,
   ) {
+    // =======================================================
+    // USER
+    // =======================================================
+
     const user =
       await this.prisma.user.findUnique({
         where: {
@@ -52,72 +60,77 @@ export class DocumentsService {
       );
     }
 
-    // ADMIN ma kay7tajch documents
-    if (user.role === UserRole.ADMIN) {
+    // Admin ma kay7tajch documents
+    if (
+      user.role ===
+      UserRole.ADMIN
+    ) {
       throw new BadRequestException(
         "Admin does not need documents",
       );
     }
 
-    const data: any = {
-      cinUrl:
-        body.cinUrl || null,
+    // =======================================================
+    // NORMALIZE DATA
+    // =======================================================
 
-      onssaUrl:
-        body.onssaUrl || null,
+    const cinUrl =
+      typeof body.cinUrl === "string" &&
+      body.cinUrl.trim()
+        ? body.cinUrl.trim()
+        : null;
 
-      // Legal license ma bqat required
-      legalUrl:
-        null,
+    const onssaUrl =
+      typeof body.onssaUrl === "string" &&
+      body.onssaUrl.trim()
+        ? body.onssaUrl.trim()
+        : null;
 
-      driverUrl:
-        null,
+    const driverUrl =
+      typeof body.driverUrl === "string" &&
+      body.driverUrl.trim()
+        ? body.driverUrl.trim()
+        : null;
 
-      vehicleUrl:
-        null,
-    };
+    const vehicleUrl =
+      typeof body.vehicleUrl === "string" &&
+      body.vehicleUrl.trim()
+        ? body.vehicleUrl.trim()
+        : null;
 
     // =======================================================
     // FARMER
-    // Required:
     // CIN + ONSSA
     // =======================================================
 
-    if (user.role === UserRole.FARMER) {
+    if (
+      user.role ===
+      UserRole.FARMER
+    ) {
       if (
-        !data.cinUrl ||
-        !data.onssaUrl
+        !cinUrl ||
+        !onssaUrl
       ) {
         throw new BadRequestException(
           "Farmer must upload CIN and ONSSA",
         );
       }
-
-      data.driverUrl = null;
-      data.vehicleUrl = null;
     }
 
     // =======================================================
     // DISTRIBUTOR
-    // Required:
-    // CIN + ONSSA + Driving license + Vehicle registration
+    // CIN + ONSSA + DRIVER + VEHICLE
     // =======================================================
 
     if (
       user.role ===
       UserRole.DISTRIBUTOR
     ) {
-      data.driverUrl =
-        body.driverUrl || null;
-
-      data.vehicleUrl =
-        body.vehicleUrl || null;
-
       if (
-        !data.cinUrl ||
-        !data.onssaUrl ||
-        !data.driverUrl ||
-        !data.vehicleUrl
+        !cinUrl ||
+        !onssaUrl ||
+        !driverUrl ||
+        !vehicleUrl
       ) {
         throw new BadRequestException(
           "Distributor must upload CIN, ONSSA, driving license and vehicle registration",
@@ -126,50 +139,93 @@ export class DocumentsService {
     }
 
     // =======================================================
-    // EXISTING DOCUMENTS
+    // PREPARE NEW DOCUMENTS
     // =======================================================
 
-    const existingDocs =
-      await this.prisma.userDocument.findFirst({
-        where: {
-          userId,
+    const newDocuments = {
+      userId,
+
+      cinUrl,
+
+      onssaUrl,
+
+      // Legal license ma bqat required
+      legalUrl: null,
+
+      driverUrl:
+        user.role ===
+        UserRole.DISTRIBUTOR
+          ? driverUrl
+          : null,
+
+      vehicleUrl:
+        user.role ===
+        UserRole.DISTRIBUTOR
+          ? vehicleUrl
+          : null,
+    };
+
+    // =======================================================
+    // REPLACE OLD DOCUMENTS
+    //
+    // 1. Delete ALL previous DB document records
+    // 2. Create one fresh record
+    // 3. Reset approval to PENDING
+    //
+    // All in ONE transaction
+    // =======================================================
+
+    const result =
+      await this.prisma.$transaction(
+        async (tx) => {
+          // ===============================================
+          // DELETE OLD DOCUMENT RECORDS
+          // ===============================================
+
+          await tx.userDocument.deleteMany({
+            where: {
+              userId,
+            },
+          });
+
+          // ===============================================
+          // CREATE ONLY NEW DOCUMENTS
+          // ===============================================
+
+          const created =
+            await tx.userDocument.create({
+              data:
+                newDocuments,
+            });
+
+          // ===============================================
+          // RESET USER APPROVAL
+          // ===============================================
+
+          await tx.user.update({
+            where: {
+              id: userId,
+            },
+
+            data: {
+              approvalStatus:
+                ApprovalStatus.PENDING,
+            },
+          });
+
+          return created;
         },
-      });
+      );
 
-    let result;
+    return {
+      message:
+        "Documents submitted successfully",
 
-    if (existingDocs) {
-      result =
-        await this.prisma.userDocument.update({
-          where: {
-            id: existingDocs.id,
-          },
-          data,
-        });
-    } else {
-      result =
-        await this.prisma.userDocument.create({
-          data: {
-            userId,
-            ...data,
-          },
-        });
-    }
+      documents:
+        result,
 
-    // =======================================================
-    // RESET APPROVAL TO PENDING
-    // =======================================================
-
-    await this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        approvalStatus:
-          "PENDING",
-      },
-    });
-
-    return result;
+      approvalStatus:
+        ApprovalStatus.PENDING,
+    };
   }
 }
