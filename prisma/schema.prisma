@@ -7,20 +7,21 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  fullName           String
-  phone              String              @unique
-  email              String?             @unique
-  passwordHash       String
-  role               UserRole
-  approvalStatus     ApprovalStatus      @default(PENDING)
-  city               String?
-  address            String?
-  latitude           Float?
-  longitude          Float?
-  isActive           Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id             String         @id @default(cuid())
+  fullName       String
+  phone          String         @unique
+  email          String?        @unique
+  passwordHash   String
+  role           UserRole
+  approvalStatus ApprovalStatus @default(PENDING)
+  city           String?
+  address        String?
+  latitude       Float?
+  longitude      Float?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
   participantOne     ChatConversation[]  @relation("ConversationUserOne")
   participantTwo     ChatConversation[]  @relation("ConversationUserTwo")
   sentMessages       ChatMessage[]       @relation("MessageSender")
@@ -32,6 +33,22 @@ model User {
   documents          UserDocument[]
   wallet             Wallet?
   walletTransactions WalletTransaction[] @relation("WalletUserTransactions")
+
+  farms Farm[]
+}
+
+model Farm {
+  id        String   @id @default(cuid())
+  name      String
+  farmerId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  farmer   User      @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  listings Listing[]
+
+  @@unique([farmerId, name])
+  @@index([farmerId])
 }
 
 model UserDocument {
@@ -44,7 +61,8 @@ model UserDocument {
   vehicleUrl String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -52,20 +70,24 @@ model UserDocument {
 model Listing {
   id       String @id @default(cuid())
   farmerId String
-  title    String
+
+  // Nullable bach listings l9dam maytksroch
+  farmId String?
+
+  title String
 
   category String @default("دجاج اللحم")
   variant  String @default("دجاج اللحم")
 
   description String?
 
-  // مثال: 38-40/100
+  // Exemple: 38-40/100
   netWeight String?
 
-  // الكمية الإجمالية المتوفرة فالفيرمة
+  // Total stock dyal had lferma
   quantityKg Float
 
-  // الكمية اللي مازال متوفرة للبيع
+  // Stock li mazal disponible
   availableKg Float
 
   pricePerKg      Decimal @db.Decimal(12, 2)
@@ -77,7 +99,6 @@ model Listing {
   latitude  Float
   longitude Float
 
-  // رابط Google Maps ديال الفيرمة - اختياري
   farmLink String?
 
   status       ListingStatus @default(ACTIVE)
@@ -88,11 +109,15 @@ model Listing {
 
   conversations ChatConversation[]
   favorites     Favorite[]
-  farmer        User               @relation("BreederListings", fields: [farmerId], references: [id], onDelete: Cascade)
-  images        ListingImage[]
-  orders        Order[]
+
+  farmer User  @relation("BreederListings", fields: [farmerId], references: [id], onDelete: Cascade)
+  farm   Farm? @relation(fields: [farmId], references: [id], onDelete: SetNull)
+
+  images ListingImage[]
+  orders Order[]
 
   @@index([farmerId])
+  @@index([farmId])
   @@index([city])
   @@index([status])
 }
@@ -102,7 +127,8 @@ model ListingImage {
   listingId String
   imageUrl  String
   createdAt DateTime @default(now())
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@index([listingId])
 }
@@ -139,11 +165,12 @@ model Order {
 }
 
 model Wallet {
-  id           String              @id @default(cuid())
-  userId       String              @unique
-  balance      Decimal             @default(0) @db.Decimal(12, 2)
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  balance   Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions WalletTransaction[]
 
@@ -162,8 +189,9 @@ model WalletTransaction {
   note      String?
   createdAt DateTime                @default(now())
   updatedAt DateTime                @updatedAt
-  user      User                    @relation("WalletUserTransactions", fields: [userId], references: [id], onDelete: Cascade)
-  wallet    Wallet                  @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  user   User   @relation("WalletUserTransactions", fields: [userId], references: [id], onDelete: Cascade)
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
   @@index([walletId])
   @@index([userId])
@@ -181,7 +209,8 @@ model RechargeRequest {
   note       String?
   createdAt  DateTime              @default(now())
   updatedAt  DateTime              @updatedAt
-  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
@@ -197,17 +226,20 @@ model AppSetting {
 }
 
 model ChatConversation {
-  id            String        @id @default(cuid())
+  id            String    @id @default(cuid())
   userOneId     String
   userTwoId     String
   listingId     String?
   lastMessageAt DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  listing       Listing?      @relation(fields: [listingId], references: [id])
-  userOne       User          @relation("ConversationUserOne", fields: [userOneId], references: [id], onDelete: Cascade)
-  userTwo       User          @relation("ConversationUserTwo", fields: [userTwoId], references: [id], onDelete: Cascade)
-  messages      ChatMessage[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  listing Listing? @relation(fields: [listingId], references: [id])
+
+  userOne User @relation("ConversationUserOne", fields: [userOneId], references: [id], onDelete: Cascade)
+  userTwo User @relation("ConversationUserTwo", fields: [userTwoId], references: [id], onDelete: Cascade)
+
+  messages ChatMessage[]
 
   @@index([userOneId])
   @@index([userTwoId])
@@ -215,14 +247,15 @@ model ChatConversation {
 }
 
 model ChatMessage {
-  id             String           @id @default(cuid())
+  id             String   @id @default(cuid())
   conversationId String
   senderId       String
   content        String
-  isRead         Boolean          @default(false)
-  createdAt      DateTime         @default(now())
-  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User             @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User             @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@index([senderId])
@@ -237,7 +270,8 @@ model OrderTracking {
   driverId  String?
   heading   Float?
   speed     Float?
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
   @@index([driverId])
@@ -248,8 +282,9 @@ model Favorite {
   userId    String
   listingId String
   createdAt DateTime @default(now())
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, listingId])
   @@index([userId])

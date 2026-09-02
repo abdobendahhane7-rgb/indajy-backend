@@ -1,4 +1,9 @@
-import { IsString, IsOptional } from "class-validator";
+import {
+  ArrayMinSize,
+  IsArray,
+  IsOptional,
+  IsString,
+} from "class-validator";
 
 export class RegisterDto {
   @IsString()
@@ -8,9 +13,11 @@ export class RegisterDto {
   phone!: string;
 
   @IsOptional()
+  @IsString()
   email?: string;
 
   @IsOptional()
+  @IsString()
   city?: string;
 
   @IsString()
@@ -18,4 +25,13 @@ export class RegisterDto {
 
   @IsString()
   role!: string;
+
+  // غير للمربي
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({
+    each: true,
+  })
+  farmNames?: string[];
 }

@@ -11,21 +11,38 @@ import {
   UserRole,
 } from "@prisma/client";
 
-import { PrismaService } from "../prisma/prisma.service";
-import { CreateListingDto } from "./dto/create-listing.dto";
-import { UpdateListingDto } from "./dto/update-listing.dto";
+import {
+  PrismaService,
+} from "../prisma/prisma.service";
+
+import {
+  CreateListingDto,
+} from "./dto/create-listing.dto";
+
+import {
+  UpdateListingDto,
+} from "./dto/update-listing.dto";
 
 @Injectable()
 export class ListingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma:
+      PrismaService,
+  ) {}
 
   private allowedProducts = [
     "دجاج اللحم",
     "الديك الرومي",
   ];
 
-  private roundTo2(value: number) {
-    return Number(value.toFixed(2));
+  private roundTo2(
+    value: number,
+  ) {
+    return Number(
+      value.toFixed(
+        2,
+      ),
+    );
   }
 
   private calculateTotalStockValue(
@@ -33,7 +50,8 @@ export class ListingsService {
     pricePerKg: number,
   ) {
     return this.roundTo2(
-      quantityKg * pricePerKg,
+      quantityKg *
+        pricePerKg,
     );
   }
 
@@ -43,41 +61,72 @@ export class ListingsService {
     lat2: number,
     lon2: number,
   ) {
-    const earthRadiusKm = 6371;
+    const earthRadiusKm =
+      6371;
 
     const dLat =
-      this.toRadians(lat2 - lat1);
+      this.toRadians(
+        lat2 - lat1,
+      );
 
     const dLon =
-      this.toRadians(lon2 - lon1);
+      this.toRadians(
+        lon2 - lon1,
+      );
 
     const a =
-      Math.sin(dLat / 2) *
-        Math.sin(dLat / 2) +
+      Math.sin(
+        dLat / 2,
+      ) *
+        Math.sin(
+          dLat / 2,
+        ) +
       Math.cos(
-        this.toRadians(lat1),
+        this.toRadians(
+          lat1,
+        ),
       ) *
         Math.cos(
-          this.toRadians(lat2),
+          this.toRadians(
+            lat2,
+          ),
         ) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+        Math.sin(
+          dLon / 2,
+        ) *
+        Math.sin(
+          dLon / 2,
+        );
 
     const c =
       2 *
       Math.atan2(
-        Math.sqrt(a),
-        Math.sqrt(1 - a),
+        Math.sqrt(
+          a,
+        ),
+        Math.sqrt(
+          1 - a,
+        ),
       );
 
     return this.roundTo2(
-      earthRadiusKm * c,
+      earthRadiusKm *
+        c,
     );
   }
 
-  private toRadians(value: number) {
-    return (value * Math.PI) / 180;
+  private toRadians(
+    value: number,
+  ) {
+    return (
+      value *
+      Math.PI
+    ) / 180;
   }
+
+  // =========================================================
+  // PRODUCT VALIDATION
+  // =========================================================
 
   private validateProduct(
     category?: string,
@@ -97,12 +146,19 @@ export class ListingsService {
           )
         : true;
 
-    if (!validCategory || !validVariant) {
+    if (
+      !validCategory ||
+      !validVariant
+    ) {
       throw new BadRequestException(
         "Product must be دجاج اللحم or الديك الرومي",
       );
     }
   }
+
+  // =========================================================
+  // NET WEIGHT VALIDATION
+  // =========================================================
 
   private validateNetWeight(
     netWeight?: string,
@@ -117,7 +173,10 @@ export class ListingsService {
     }
 
     if (
-      netWeight.trim().length > 50
+      netWeight
+        .trim()
+        .length >
+      50
     ) {
       throw new BadRequestException(
         "Invalid net weight",
@@ -126,7 +185,7 @@ export class ListingsService {
   }
 
   // =========================================================
-  // HIDE PRIVATE FARM DATA FROM PUBLIC LISTINGS
+  // HIDE PRIVATE FARM INFORMATION
   // =========================================================
 
   private hidePrivateFarmInfo(
@@ -139,20 +198,88 @@ export class ListingsService {
     return {
       ...listing,
 
-      address: null,
-      latitude: null,
-      longitude: null,
-      farmLink: null,
+      address:
+        null,
 
-      farmer: listing.farmer
-        ? {
-            ...listing.farmer,
-            phone: null,
-            latitude: null,
-            longitude: null,
-          }
-        : null,
+      latitude:
+        null,
+
+      longitude:
+        null,
+
+      farmLink:
+        null,
+
+      farmer:
+        listing.farmer
+          ? {
+              ...listing.farmer,
+
+              phone:
+                null,
+
+              latitude:
+                null,
+
+              longitude:
+                null,
+            }
+          : null,
     };
+  }
+
+  // =========================================================
+  // GET MY FARMS
+  // =========================================================
+
+  async getMyFarms(
+    userId: string,
+  ) {
+    const user =
+      await this.prisma.user.findUnique({
+        where: {
+          id:
+            userId,
+        },
+      });
+
+    if (!user) {
+      throw new NotFoundException(
+        "User not found",
+      );
+    }
+
+    if (
+      user.role !==
+      UserRole.FARMER
+    ) {
+      throw new ForbiddenException(
+        "Only breeders have farms",
+      );
+    }
+
+    return this.prisma.farm.findMany({
+      where: {
+        farmerId:
+          userId,
+      },
+
+      select: {
+        id:
+          true,
+
+        name:
+          true,
+
+        createdAt:
+          true,
+      },
+
+      orderBy: {
+        createdAt:
+          "asc",
+      },
+    });
   }
 
   // =========================================================
@@ -166,7 +293,8 @@ export class ListingsService {
     const user =
       await this.prisma.user.findUnique({
         where: {
-          id: userId,
+          id:
+            userId,
         },
       });
 
@@ -177,7 +305,8 @@ export class ListingsService {
     }
 
     if (
-      user.role !== UserRole.FARMER
+      user.role !==
+      UserRole.FARMER
     ) {
       throw new ForbiddenException(
         "Only breeders can create listings",
@@ -193,9 +322,36 @@ export class ListingsService {
       );
     }
 
+    // =======================================================
+    // FARM
+    // =======================================================
+
+    const farm =
+      await this.prisma.farm.findFirst({
+        where: {
+          id:
+            dto.farmId,
+
+          farmerId:
+            userId,
+        },
+      });
+
+    if (!farm) {
+      throw new BadRequestException(
+        "Invalid farm",
+      );
+    }
+
+    // =======================================================
+    // QUANTITY + PRICE
+    // =======================================================
+
     if (
-      dto.quantityKg <= 0 ||
-      dto.pricePerKg <= 0
+      dto.quantityKg <=
+        0 ||
+      dto.pricePerKg <=
+        0
     ) {
       throw new BadRequestException(
         "Quantity and price must be greater than 0",
@@ -217,9 +373,17 @@ export class ListingsService {
         dto.pricePerKg,
       );
 
+    // =======================================================
+    // CREATE
+    // =======================================================
+
     return this.prisma.listing.create({
       data: {
-        farmerId: userId,
+        farmerId:
+          userId,
+
+        farmId:
+          farm.id,
 
         title:
           dto.title.trim(),
@@ -260,30 +424,56 @@ export class ListingsService {
           dto.longitude,
 
         farmLink:
-          dto.farmLink?.trim() ||
+          dto.farmLink
+            ?.trim() ||
           null,
 
         isGpsEnabled:
-          dto.isGpsEnabled ?? true,
+          dto.isGpsEnabled ??
+          true,
 
         status:
           ListingStatus.ACTIVE,
       },
 
       include: {
-        farmer: {
+        farm: {
           select: {
-            id: true,
-            fullName: true,
-            phone: true,
-            city: true,
-            latitude: true,
-            longitude: true,
-            approvalStatus: true,
+            id:
+              true,
+
+            name:
+              true,
           },
         },
 
-        images: true,
+        farmer: {
+          select: {
+            id:
+              true,
+
+            fullName:
+              true,
+
+            phone:
+              true,
+
+            city:
+              true,
+
+            latitude:
+              true,
+
+            longitude:
+              true,
+
+            approvalStatus:
+              true,
+          },
+        },
+
+        images:
+          true,
       },
     });
   }
@@ -292,22 +482,28 @@ export class ListingsService {
   // GET ALL PUBLIC LISTINGS
   // =========================================================
 
-  async getAllListings(query: {
-    city?: string;
-    category?: string;
-    variant?: string;
-    latitude?: number;
-    longitude?: number;
-    maxDistanceKm?: number;
-  }) {
-    if (query.category) {
+  async getAllListings(
+    query: {
+      city?: string;
+      category?: string;
+      variant?: string;
+      latitude?: number;
+      longitude?: number;
+      maxDistanceKm?: number;
+    },
+  ) {
+    if (
+      query.category
+    ) {
       this.validateProduct(
         query.category,
         undefined,
       );
     }
 
-    if (query.variant) {
+    if (
+      query.variant
+    ) {
       this.validateProduct(
         undefined,
         query.variant,
@@ -321,11 +517,13 @@ export class ListingsService {
             ListingStatus.ACTIVE,
 
           availableKg: {
-            gt: 0,
+            gt:
+              0,
           },
 
           city:
-            query.city || undefined,
+            query.city ||
+            undefined,
 
           category:
             query.category ||
@@ -337,32 +535,61 @@ export class ListingsService {
         },
 
         include: {
-          farmer: {
+          farm: {
             select: {
-              id: true,
-              fullName: true,
-              phone: true,
-              city: true,
-              latitude: true,
-              longitude: true,
-              approvalStatus: true,
+              id:
+                true,
+
+              name:
+                true,
             },
           },
 
-          images: true,
+          farmer: {
+            select: {
+              id:
+                true,
+
+              fullName:
+                true,
+
+              phone:
+                true,
+
+              city:
+                true,
+
+              latitude:
+                true,
+
+              longitude:
+                true,
+
+              approvalStatus:
+                true,
+            },
+          },
+
+          images:
+            true,
         },
 
         orderBy: {
-          createdAt: "desc",
+          createdAt:
+            "desc",
         },
       });
 
     if (
-      query.latitude === undefined ||
-      query.longitude === undefined
+      query.latitude ===
+        undefined ||
+      query.longitude ===
+        undefined
     ) {
       return listings.map(
-        (listing) =>
+        (
+          listing,
+        ) =>
           this.hidePrivateFarmInfo(
             listing,
           ),
@@ -371,7 +598,9 @@ export class ListingsService {
 
     const withDistance =
       listings.map(
-        (listing) => {
+        (
+          listing,
+        ) => {
           const distanceKm =
             this.calculateDistanceKm(
               query.latitude!,
@@ -391,7 +620,9 @@ export class ListingsService {
       query.maxDistanceKm !==
       undefined
         ? withDistance.filter(
-            (item) =>
+            (
+              item,
+            ) =>
               item.distanceKm <=
               query.maxDistanceKm!,
           )
@@ -399,12 +630,17 @@ export class ListingsService {
 
     return filtered
       .sort(
-        (a, b) =>
+        (
+          a,
+          b,
+        ) =>
           a.distanceKm -
           b.distanceKm,
       )
       .map(
-        (listing) =>
+        (
+          listing,
+        ) =>
           this.hidePrivateFarmInfo(
             listing,
           ),
@@ -412,7 +648,7 @@ export class ListingsService {
   }
 
   // =========================================================
-  // FARMER'S OWN LISTINGS
+  // FARMER OWN LISTINGS
   // =========================================================
 
   async getMyListings(
@@ -420,21 +656,34 @@ export class ListingsService {
   ) {
     return this.prisma.listing.findMany({
       where: {
-        farmerId: userId,
+        farmerId:
+          userId,
       },
 
       include: {
-        images: true,
+        farm: {
+          select: {
+            id:
+              true,
+
+            name:
+              true,
+          },
+        },
+
+        images:
+          true,
       },
 
       orderBy: {
-        createdAt: "desc",
+        createdAt:
+          "desc",
       },
     });
   }
 
   // =========================================================
-  // PUBLIC LISTING BY ID
+  // GET PUBLIC LISTING
   // =========================================================
 
   async getListingById(
@@ -447,19 +696,43 @@ export class ListingsService {
         },
 
         include: {
-          farmer: {
+          farm: {
             select: {
-              id: true,
-              fullName: true,
-              phone: true,
-              city: true,
-              latitude: true,
-              longitude: true,
-              approvalStatus: true,
+              id:
+                true,
+
+              name:
+                true,
             },
           },
 
-          images: true,
+          farmer: {
+            select: {
+              id:
+                true,
+
+              fullName:
+                true,
+
+              phone:
+                true,
+
+              city:
+                true,
+
+              latitude:
+                true,
+
+              longitude:
+                true,
+
+              approvalStatus:
+                true,
+            },
+          },
+
+          images:
+            true,
         },
       });
 
@@ -486,7 +759,8 @@ export class ListingsService {
     const listing =
       await this.prisma.listing.findUnique({
         where: {
-          id: listingId,
+          id:
+            listingId,
         },
       });
 
@@ -497,7 +771,8 @@ export class ListingsService {
     }
 
     if (
-      listing.farmerId !== userId
+      listing.farmerId !==
+      userId
     ) {
       throw new ForbiddenException(
         "You cannot update this listing",
@@ -510,7 +785,8 @@ export class ListingsService {
     );
 
     if (
-      dto.netWeight !== undefined
+      dto.netWeight !==
+      undefined
     ) {
       this.validateNetWeight(
         dto.netWeight,
@@ -550,14 +826,16 @@ export class ListingsService {
       undefined
     ) {
       nextStatus =
-        dto.availableKg <= 0
+        dto.availableKg <=
+        0
           ? ListingStatus.OUT_OF_STOCK
           : ListingStatus.ACTIVE;
     }
 
     return this.prisma.listing.update({
       where: {
-        id: listingId,
+        id:
+          listingId,
       },
 
       data: {
@@ -610,18 +888,40 @@ export class ListingsService {
       },
 
       include: {
-        farmer: {
+        farm: {
           select: {
-            id: true,
-            fullName: true,
-            phone: true,
-            city: true,
-            latitude: true,
-            longitude: true,
+            id:
+              true,
+
+            name:
+              true,
           },
         },
 
-        images: true,
+        farmer: {
+          select: {
+            id:
+              true,
+
+            fullName:
+              true,
+
+            phone:
+              true,
+
+            city:
+              true,
+
+            latitude:
+              true,
+
+            longitude:
+              true,
+          },
+        },
+
+        images:
+          true,
       },
     });
   }
@@ -637,7 +937,8 @@ export class ListingsService {
     const listing =
       await this.prisma.listing.findUnique({
         where: {
-          id: listingId,
+          id:
+            listingId,
         },
       });
 
@@ -648,7 +949,8 @@ export class ListingsService {
     }
 
     if (
-      listing.farmerId !== userId
+      listing.farmerId !==
+      userId
     ) {
       throw new ForbiddenException(
         "You cannot deactivate this listing",
@@ -657,7 +959,8 @@ export class ListingsService {
 
     return this.prisma.listing.update({
       where: {
-        id: listingId,
+        id:
+          listingId,
       },
 
       data: {
@@ -678,7 +981,8 @@ export class ListingsService {
     const listing =
       await this.prisma.listing.findUnique({
         where: {
-          id: listingId,
+          id:
+            listingId,
         },
       });
 
@@ -689,7 +993,8 @@ export class ListingsService {
     }
 
     if (
-      listing.farmerId !== userId
+      listing.farmerId !==
+      userId
     ) {
       throw new ForbiddenException(
         "You cannot delete this listing",
@@ -698,7 +1003,8 @@ export class ListingsService {
 
     await this.prisma.listing.delete({
       where: {
-        id: listingId,
+        id:
+          listingId,
       },
     });
 

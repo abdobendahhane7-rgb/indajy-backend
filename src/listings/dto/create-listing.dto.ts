@@ -5,9 +5,16 @@ import {
   IsString,
   Min,
 } from "class-validator";
-import { Type } from "class-transformer";
+
+import {
+  Type,
+} from "class-transformer";
 
 export class CreateListingDto {
+  // الفيرمة المختارة
+  @IsString()
+  farmId!: string;
+
   @IsString()
   title!: string;
 
@@ -24,7 +31,7 @@ export class CreateListingDto {
   @IsString()
   netWeight!: string;
 
-  // الكمية الإجمالية المتوفرة فالفيرمة بالكيلو
+  // الكمية الإجمالية المتوفرة فالفيرمة
   @Type(() => Number)
   @IsNumber()
   @Min(0.01)
@@ -49,7 +56,6 @@ export class CreateListingDto {
   @IsNumber()
   longitude!: number;
 
-  // رابط الفيرمة اختياري
   @IsOptional()
   @IsString()
   farmLink?: string;
