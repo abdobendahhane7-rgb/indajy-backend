@@ -3,24 +3,13 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-} from "@nestjs/common";
+} from '@nestjs/common';
 
-import {
-  PostAudience,
-  UserRole,
-} from "@prisma/client";
+import { PostAudience } from '@prisma/client';
 
-import {
-  PrismaService,
-} from "../prisma/prisma.service";
-
-import {
-  CreatePostDto,
-} from "./dto/create-post.dto";
-
-import {
-  UpdatePostDto,
-} from "./dto/update-post.dto";
+import { PrismaService } from '../prisma/prisma.service';
+import { CreatePostDto } from './dto/create-post.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 
 @Injectable()
 export class PostsService {
@@ -29,100 +18,76 @@ export class PostsService {
   ) {}
 
   // =========================================================
-  // CHECK ADMIN
+  // HELPERS
   // =========================================================
 
-  private async requireAdmin(
-    userId: string,
-  ) {
-    const user =
-      await this.prisma.user.findUnique({
-        where: {
-          id: userId,
-        },
-      });
-
-    if (!user) {
-      throw new NotFoundException(
-        "User not found",
-      );
-    }
-
-    if (
-      user.role !==
-      UserRole.ADMIN
-    ) {
+  private requireAdmin(user: any) {
+    if (!user || user.role !== 'ADMIN') {
       throw new ForbiddenException(
-        "Only admin can manage posts",
+        'Admin access required',
       );
     }
-
-    return user;
   }
-
-  // =========================================================
-  // NORMALIZE OPTIONAL TEXT
-  // =========================================================
 
   private cleanOptionalString(
     value?: string | null,
-    ): string | null {
-    if (
-        value === undefined ||
-        value === null
-    ) {
-        return null;
+  ): string | null {
+    if (value === undefined || value === null) {
+      return null;
     }
 
-  const clean = String(value).trim();
+    const clean = value.trim();
 
-  return clean.length === 0
-    ? null
-    : clean;
-}
+    if (!clean) {
+      return null;
+    }
+
+    return clean;
+  }
+
+  private validatePostContent(
+    text: string | null,
+    imageUrl: string | null,
+  ) {
+    if (!text && !imageUrl) {
+      throw new BadRequestException(
+        'Post must contain text or image',
+      );
+    }
+  }
+
   // =========================================================
-  // CREATE POST
+  // ADMIN - CREATE POST
+  // POST /posts/admin
   // =========================================================
 
   async createPost(
-    userId: string,
+    user: any,
     dto: CreatePostDto,
   ) {
-    await this.requireAdmin(
-      userId,
-    );
+    this.requireAdmin(user);
 
     const text =
-      this.cleanOptionalString(
-        dto.text,
-      );
+        this.cleanOptionalString(
+      dto.text,
+    );
 
     const imageUrl =
-      this.cleanOptionalString(
-        dto.imageUrl,
-      );
+        this.cleanOptionalString(
+      dto.imageUrl,
+    );
 
-    // Post ma y9derch ykon khawi
-    if (
-      !text &&
-      !imageUrl
-    ) {
-      throw new BadRequestException(
-        "Post must contain text or image",
-      );
-    }
+    this.validatePostContent(
+      text,
+      imageUrl,
+    );
 
     return this.prisma.post.create({
       data: {
-        authorId:
-          userId,
-
+        authorId: user.id,
         text,
-
         imageUrl,
-
-        audience:
-          dto.audience,
+        audience: dto.audience,
       },
 
       include: {
@@ -130,6 +95,7 @@ export class PostsService {
           select: {
             id: true,
             fullName: true,
+            role: true,
           },
         },
       },
@@ -138,62 +104,64 @@ export class PostsService {
 
   // =========================================================
   // ADMIN - GET ALL POSTS
+  // GET /posts/admin
   // =========================================================
 
   async getAllPostsForAdmin(
-    userId: string,
+    user: any,
   ) {
-    await this.requireAdmin(
-      userId,
-    );
+    this.requireAdmin(user);
 
     return this.prisma.post.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+
       include: {
         author: {
           select: {
             id: true,
             fullName: true,
+            role: true,
           },
         },
-      },
-
-      orderBy: {
-        createdAt:
-          "desc",
       },
     });
   }
 
   // =========================================================
-  // USER FEED
+  // USER - GET POSTS
+  // GET /posts
+  //
+  // FARMER:
+  //   ALL + FARMER
+  //
+  // DISTRIBUTOR:
+  //   ALL + DISTRIBUTOR
+  //
+  // ADMIN:
+  //   ALL POSTS
   // =========================================================
 
   async getPostsForUser(
-    userId: string,
+    user: any,
   ) {
-    const user =
-      await this.prisma.user.findUnique({
-        where: {
-          id:
-            userId,
-        },
-      });
-
     if (!user) {
-      throw new NotFoundException(
-        "User not found",
+      throw new ForbiddenException(
+        'Authentication required',
       );
     }
 
+    const role =
+        String(user.role ?? '')
+            .trim()
+            .toUpperCase();
+
     // =======================================================
     // FARMER
-    // ALL + FARMER
     // =======================================================
 
-    if (
-      user.role ===
-      UserRole.FARMER
-    ) {
+    if (role === 'FARMER') {
       return this.prisma.post.findMany({
         where: {
           audience: {
@@ -204,31 +172,27 @@ export class PostsService {
           },
         },
 
-        select: {
-          id: true,
-          text: true,
-          imageUrl: true,
-          audience: true,
-          createdAt: true,
-          updatedAt: true,
+        orderBy: {
+          createdAt: 'desc',
         },
 
-        orderBy: {
-          createdAt:
-            "desc",
+        include: {
+          author: {
+            select: {
+              id: true,
+              fullName: true,
+              role: true,
+            },
+          },
         },
       });
     }
 
     // =======================================================
     // DISTRIBUTOR
-    // ALL + DISTRIBUTOR
     // =======================================================
 
-    if (
-      user.role ===
-      UserRole.DISTRIBUTOR
-    ) {
+    if (role === 'DISTRIBUTOR') {
       return this.prisma.post.findMany({
         where: {
           audience: {
@@ -239,114 +203,117 @@ export class PostsService {
           },
         },
 
-        select: {
-          id: true,
-          text: true,
-          imageUrl: true,
-          audience: true,
-          createdAt: true,
-          updatedAt: true,
+        orderBy: {
+          createdAt: 'desc',
         },
 
-        orderBy: {
-          createdAt:
-            "desc",
+        include: {
+          author: {
+            select: {
+              id: true,
+              fullName: true,
+              role: true,
+            },
+          },
         },
       });
     }
 
     // =======================================================
     // ADMIN
-    // Can see everything
     // =======================================================
 
-    if (
-      user.role ===
-      UserRole.ADMIN
-    ) {
+    if (role === 'ADMIN') {
       return this.prisma.post.findMany({
         orderBy: {
-          createdAt:
-            "desc",
+          createdAt: 'desc',
+        },
+
+        include: {
+          author: {
+            select: {
+              id: true,
+              fullName: true,
+              role: true,
+            },
+          },
         },
       });
     }
 
-    // DRIVER currently ma 3ndoch posts
+    // Unknown role
     return [];
   }
 
   // =========================================================
-  // UPDATE POST
+  // ADMIN - UPDATE POST
+  // PATCH /posts/admin/:id
   // =========================================================
 
   async updatePost(
-    userId: string,
+    user: any,
     postId: string,
     dto: UpdatePostDto,
   ) {
-    await this.requireAdmin(
-      userId,
-    );
+    this.requireAdmin(user);
 
-    const post =
-      await this.prisma.post.findUnique({
-        where: {
-          id:
-            postId,
-        },
-      });
+    const existingPost =
+        await this.prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+    });
 
-    if (!post) {
+    if (!existingPost) {
       throw new NotFoundException(
-        "Post not found",
+        'Post not found',
       );
     }
 
-    // =======================================================
-    // CALCULATE FINAL CONTENT
-    // =======================================================
+    let text =
+        existingPost.text;
 
-    const nextText =
-      dto.text !== undefined
-        ? this.cleanOptionalString(
-            dto.text,
-          )
-        : post.text;
+    let imageUrl =
+        existingPost.imageUrl;
 
-    const nextImageUrl =
-      dto.imageUrl !== undefined
-        ? this.cleanOptionalString(
-            dto.imageUrl,
-          )
-        : post.imageUrl;
-
-    // Ma nkhelliwch post khawi
-    if (
-      !nextText &&
-      !nextImageUrl
-    ) {
-      throw new BadRequestException(
-        "Post must contain text or image",
+    // If text was sent, update it.
+    // Empty string becomes null.
+    if (dto.text !== undefined) {
+      text =
+          this.cleanOptionalString(
+        dto.text,
       );
     }
+
+    // If imageUrl was sent, update it.
+    // Empty string becomes null.
+    if (dto.imageUrl !== undefined) {
+      imageUrl =
+          this.cleanOptionalString(
+        dto.imageUrl,
+      );
+    }
+
+    this.validatePostContent(
+      text,
+      imageUrl,
+    );
 
     return this.prisma.post.update({
       where: {
-        id:
-          postId,
+        id: postId,
       },
 
       data: {
-        text:
-          nextText,
+        text,
+        imageUrl,
 
-        imageUrl:
-          nextImageUrl,
-
-        audience:
-          dto.audience ??
-          post.audience,
+        ...(dto.audience !== undefined
+            ? {
+                audience:
+                    dto.audience,
+              }
+            : {}),
       },
 
       include: {
@@ -354,6 +321,7 @@ export class PostsService {
           select: {
             id: true,
             fullName: true,
+            role: true,
           },
         },
       },
@@ -361,41 +329,39 @@ export class PostsService {
   }
 
   // =========================================================
-  // DELETE POST
+  // ADMIN - DELETE POST
+  // DELETE /posts/admin/:id
   // =========================================================
 
   async deletePost(
-    userId: string,
+    user: any,
     postId: string,
   ) {
-    await this.requireAdmin(
-      userId,
-    );
+    this.requireAdmin(user);
 
-    const post =
-      await this.prisma.post.findUnique({
-        where: {
-          id:
-            postId,
-        },
-      });
+    const existingPost =
+        await this.prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+    });
 
-    if (!post) {
+    if (!existingPost) {
       throw new NotFoundException(
-        "Post not found",
+        'Post not found',
       );
     }
 
     await this.prisma.post.delete({
       where: {
-        id:
-          postId,
+        id: postId,
       },
     });
 
     return {
+      success: true,
       message:
-        "Post deleted successfully",
+          'Post deleted successfully',
     };
   }
 }
