@@ -57,6 +57,58 @@ export class PostsService {
   }
 
   // =========================================================
+  // GET REAL USER ROLE FROM DATABASE
+  // =========================================================
+
+  private async getRealUserRole(
+    user: any,
+  ): Promise<string> {
+    if (!user) {
+      throw new ForbiddenException(
+        'Authentication required',
+      );
+    }
+
+    // JWT/strategy can expose the id as "id" or "sub"
+    const userId =
+      String(
+        user.id ??
+          user.sub ??
+          '',
+      ).trim();
+
+    if (!userId) {
+      throw new ForbiddenException(
+        'Invalid authenticated user',
+      );
+    }
+
+    const dbUser =
+      await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+
+        select: {
+          id: true,
+          role: true,
+        },
+      });
+
+    if (!dbUser) {
+      throw new NotFoundException(
+        'User not found',
+      );
+    }
+
+    return String(
+      dbUser.role,
+    )
+      .trim()
+      .toUpperCase();
+  }
+
+  // =========================================================
   // ADMIN - CREATE POST
   // POST /posts/admin
   // =========================================================
@@ -68,14 +120,14 @@ export class PostsService {
     this.requireAdmin(user);
 
     const text =
-        this.cleanOptionalString(
-      dto.text,
-    );
+      this.cleanOptionalString(
+        dto.text,
+      );
 
     const imageUrl =
-        this.cleanOptionalString(
-      dto.imageUrl,
-    );
+      this.cleanOptionalString(
+        dto.imageUrl,
+      );
 
     this.validatePostContent(
       text,
@@ -85,8 +137,11 @@ export class PostsService {
     return this.prisma.post.create({
       data: {
         authorId: user.id,
+
         text,
+
         imageUrl,
+
         audience: dto.audience,
       },
 
@@ -134,115 +189,112 @@ export class PostsService {
   // GET /posts
   //
   // FARMER:
-  //   ALL + FARMER
+  // ALL + FARMER
   //
   // DISTRIBUTOR:
-  //   ALL + DISTRIBUTOR
+  // ALL + DISTRIBUTOR
   //
-  // ADMIN:
-  //   ALL POSTS
   // =========================================================
 
   async getPostsForUser(
     user: any,
   ) {
-    if (!user) {
-      throw new ForbiddenException(
-        'Authentication required',
-      );
-    }
+    // IMPORTANT:
+    // ما بقيناش نعتمدو على role اللي داخل JWT
+    // كنجيبو role الحقيقي من database
+    finalRole:
+    {
+      const role =
+        await this.getRealUserRole(
+          user,
+        );
 
-    const role =
-        String(user.role ?? '')
-            .trim()
-            .toUpperCase();
+      // =====================================================
+      // FARMER
+      // =====================================================
 
-    // =======================================================
-    // FARMER
-    // =======================================================
-
-    if (role === 'FARMER') {
-      return this.prisma.post.findMany({
-        where: {
-          audience: {
-            in: [
-              PostAudience.ALL,
-              PostAudience.FARMER,
-            ],
-          },
-        },
-
-        orderBy: {
-          createdAt: 'desc',
-        },
-
-        include: {
-          author: {
-            select: {
-              id: true,
-              fullName: true,
-              role: true,
+      if (role === 'FARMER') {
+        return this.prisma.post.findMany({
+          where: {
+            audience: {
+              in: [
+                PostAudience.ALL,
+                PostAudience.FARMER,
+              ],
             },
           },
-        },
-      });
-    }
 
-    // =======================================================
-    // DISTRIBUTOR
-    // =======================================================
-
-    if (role === 'DISTRIBUTOR') {
-      return this.prisma.post.findMany({
-        where: {
-          audience: {
-            in: [
-              PostAudience.ALL,
-              PostAudience.DISTRIBUTOR,
-            ],
+          orderBy: {
+            createdAt: 'desc',
           },
-        },
 
-        orderBy: {
-          createdAt: 'desc',
-        },
-
-        include: {
-          author: {
-            select: {
-              id: true,
-              fullName: true,
-              role: true,
+          include: {
+            author: {
+              select: {
+                id: true,
+                fullName: true,
+                role: true,
+              },
             },
           },
-        },
-      });
-    }
+        });
+      }
 
-    // =======================================================
-    // ADMIN
-    // =======================================================
+      // =====================================================
+      // DISTRIBUTOR
+      // =====================================================
 
-    if (role === 'ADMIN') {
-      return this.prisma.post.findMany({
-        orderBy: {
-          createdAt: 'desc',
-        },
-
-        include: {
-          author: {
-            select: {
-              id: true,
-              fullName: true,
-              role: true,
+      if (role === 'DISTRIBUTOR') {
+        return this.prisma.post.findMany({
+          where: {
+            audience: {
+              in: [
+                PostAudience.ALL,
+                PostAudience.DISTRIBUTOR,
+              ],
             },
           },
-        },
-      });
-    }
 
-    // Unknown role
-    return [];
+          orderBy: {
+            createdAt: 'desc',
+          },
+
+          include: {
+            author: {
+              select: {
+                id: true,
+                fullName: true,
+                role: true,
+              },
+            },
+          },
+        });
+      }
+
+      // =====================================================
+      // ADMIN
+      // =====================================================
+
+      if (role === 'ADMIN') {
+        return this.prisma.post.findMany({
+          orderBy: {
+            createdAt: 'desc',
+          },
+
+          include: {
+            author: {
+              select: {
+                id: true,
+                fullName: true,
+                role: true,
+              },
+            },
+          },
+        });
+      }
+
+      return [];
+    }
   }
 
   // =========================================================
@@ -258,11 +310,11 @@ export class PostsService {
     this.requireAdmin(user);
 
     const existingPost =
-        await this.prisma.post.findUnique({
-      where: {
-        id: postId,
-      },
-    });
+      await this.prisma.post.findUnique({
+        where: {
+          id: postId,
+        },
+      });
 
     if (!existingPost) {
       throw new NotFoundException(
@@ -271,27 +323,23 @@ export class PostsService {
     }
 
     let text =
-        existingPost.text;
+      existingPost.text;
 
     let imageUrl =
-        existingPost.imageUrl;
+      existingPost.imageUrl;
 
-    // If text was sent, update it.
-    // Empty string becomes null.
     if (dto.text !== undefined) {
       text =
-          this.cleanOptionalString(
-        dto.text,
-      );
+        this.cleanOptionalString(
+          dto.text,
+        );
     }
 
-    // If imageUrl was sent, update it.
-    // Empty string becomes null.
     if (dto.imageUrl !== undefined) {
       imageUrl =
-          this.cleanOptionalString(
-        dto.imageUrl,
-      );
+        this.cleanOptionalString(
+          dto.imageUrl,
+        );
     }
 
     this.validatePostContent(
@@ -309,11 +357,11 @@ export class PostsService {
         imageUrl,
 
         ...(dto.audience !== undefined
-            ? {
-                audience:
-                    dto.audience,
-              }
-            : {}),
+          ? {
+              audience:
+                dto.audience,
+            }
+          : {}),
       },
 
       include: {
@@ -340,11 +388,11 @@ export class PostsService {
     this.requireAdmin(user);
 
     const existingPost =
-        await this.prisma.post.findUnique({
-      where: {
-        id: postId,
-      },
-    });
+      await this.prisma.post.findUnique({
+        where: {
+          id: postId,
+        },
+      });
 
     if (!existingPost) {
       throw new NotFoundException(
@@ -361,7 +409,7 @@ export class PostsService {
     return {
       success: true,
       message:
-          'Post deleted successfully',
+        'Post deleted successfully',
     };
   }
 }
