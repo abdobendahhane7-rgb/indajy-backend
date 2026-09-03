@@ -7,33 +7,22 @@ import {
   Patch,
   Post,
   UseGuards,
-} from "@nestjs/common";
+} from '@nestjs/common';
 
-import {
-  JwtAuthGuard,
-} from "../auth/jwt-auth.guard";
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-import {
-  CurrentUser,
-} from "../common/decorators/current-user.decorator";
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
-import {
-  CreatePostDto,
-} from "./dto/create-post.dto";
+import { CreatePostDto } from './dto/create-post.dto';
 
-import {
-  UpdatePostDto,
-} from "./dto/update-post.dto";
+import { UpdatePostDto } from './dto/update-post.dto';
 
-import {
-  PostsService,
-} from "./posts.service";
+import { PostsService } from './posts.service';
 
-@Controller("posts")
+@Controller('posts')
 export class PostsController {
   constructor(
-    private readonly postsService:
-      PostsService,
+    private readonly postsService: PostsService,
   ) {}
 
   // =========================================================
@@ -41,22 +30,16 @@ export class PostsController {
   // POST /posts/admin
   // =========================================================
 
-  @UseGuards(
-    JwtAuthGuard,
-  )
-  @Post("admin")
+  @UseGuards(JwtAuthGuard)
+  @Post('admin')
   createPost(
-    @CurrentUser()
-    user: any,
-
-    @Body()
-    dto: CreatePostDto,
+    @CurrentUser() user: any,
+    @Body() dto: CreatePostDto,
   ) {
-    return this.postsService
-      .createPost(
-        user.id,
-        dto,
-      );
+    return this.postsService.createPost(
+      user,
+      dto,
+    );
   }
 
   // =========================================================
@@ -64,18 +47,14 @@ export class PostsController {
   // GET /posts/admin
   // =========================================================
 
-  @UseGuards(
-    JwtAuthGuard,
-  )
-  @Get("admin")
+  @UseGuards(JwtAuthGuard)
+  @Get('admin')
   getAllForAdmin(
-    @CurrentUser()
-    user: any,
+    @CurrentUser() user: any,
   ) {
-    return this.postsService
-      .getAllPostsForAdmin(
-        user.id,
-      );
+    return this.postsService.getAllPostsForAdmin(
+      user,
+    );
   }
 
   // =========================================================
@@ -83,26 +62,18 @@ export class PostsController {
   // PATCH /posts/admin/:id
   // =========================================================
 
-  @UseGuards(
-    JwtAuthGuard,
-  )
-  @Patch("admin/:id")
+  @UseGuards(JwtAuthGuard)
+  @Patch('admin/:id')
   updatePost(
-    @CurrentUser()
-    user: any,
-
-    @Param("id")
-    id: string,
-
-    @Body()
-    dto: UpdatePostDto,
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: UpdatePostDto,
   ) {
-    return this.postsService
-      .updatePost(
-        user.id,
-        id,
-        dto,
-      );
+    return this.postsService.updatePost(
+      user,
+      id,
+      dto,
+    );
   }
 
   // =========================================================
@@ -110,22 +81,16 @@ export class PostsController {
   // DELETE /posts/admin/:id
   // =========================================================
 
-  @UseGuards(
-    JwtAuthGuard,
-  )
-  @Delete("admin/:id")
+  @UseGuards(JwtAuthGuard)
+  @Delete('admin/:id')
   deletePost(
-    @CurrentUser()
-    user: any,
-
-    @Param("id")
-    id: string,
+    @CurrentUser() user: any,
+    @Param('id') id: string,
   ) {
-    return this.postsService
-      .deletePost(
-        user.id,
-        id,
-      );
+    return this.postsService.deletePost(
+      user,
+      id,
+    );
   }
 
   // =========================================================
@@ -133,17 +98,13 @@ export class PostsController {
   // GET /posts
   // =========================================================
 
-  @UseGuards(
-    JwtAuthGuard,
-  )
+  @UseGuards(JwtAuthGuard)
   @Get()
   getMyPosts(
-    @CurrentUser()
-    user: any,
+    @CurrentUser() user: any,
   ) {
-    return this.postsService
-      .getPostsForUser(
-        user.id,
-      );
+    return this.postsService.getPostsForUser(
+      user,
+    );
   }
 }
