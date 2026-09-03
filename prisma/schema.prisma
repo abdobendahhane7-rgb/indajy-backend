@@ -35,6 +35,12 @@ model User {
   walletTransactions WalletTransaction[] @relation("WalletUserTransactions")
 
   farms Farm[]
+
+  // =========================================================
+  // POSTS CREATED BY ADMIN
+  // =========================================================
+
+  adminPosts Post[] @relation("AdminPosts")
 }
 
 model Farm {
@@ -291,6 +297,41 @@ model Favorite {
   @@index([listingId])
 }
 
+// ===========================================================
+// ADMIN POSTS
+// ===========================================================
+
+model Post {
+  id String @id @default(cuid())
+
+  // Admin li create had post
+  authorId String
+
+  // Text optional:
+  // hit post y9der ykon image only
+  text String?
+
+  // Image optional:
+  // hit post y9der ykon text only
+  imageUrl String?
+
+  // Chkon ychof post
+  audience PostAudience @default(ALL)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author User @relation("AdminPosts", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+  @@index([audience])
+  @@index([createdAt])
+}
+
+// ===========================================================
+// ENUMS
+// ===========================================================
+
 enum UserRole {
   ADMIN
   FARMER
@@ -338,4 +379,19 @@ enum RechargeRequestStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// ===========================================================
+// POST AUDIENCE
+// ===========================================================
+
+enum PostAudience {
+  // المربين والموزعين بجوج
+  ALL
+
+  // غير المربين
+  FARMER
+
+  // غير الموزعين
+  DISTRIBUTOR
 }
