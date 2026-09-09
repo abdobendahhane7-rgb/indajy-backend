@@ -36,20 +36,23 @@ model User {
 
   farms Farm[]
 
-  // =========================================================
-  // POSTS CREATED BY ADMIN
-  // =========================================================
-
   adminPosts Post[] @relation("AdminPosts")
 
-  // Password reset request (free admin approval flow)
   passwordResetRequest PasswordResetRequest?
 }
 
+// ===========================================================
+// FARM
+// ===========================================================
+
 model Farm {
-  id        String   @id @default(cuid())
-  name      String
-  farmerId  String
+  id       String @id @default(cuid())
+  name     String
+  farmerId String
+
+  // Stock dyal lferma b TONNES
+  stockTons Float @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -59,6 +62,10 @@ model Farm {
   @@unique([farmerId, name])
   @@index([farmerId])
 }
+
+// ===========================================================
+// USER DOCUMENT
+// ===========================================================
 
 model UserDocument {
   id         String   @id @default(cuid())
@@ -75,6 +82,10 @@ model UserDocument {
 
   @@index([userId])
 }
+
+// ===========================================================
+// LISTING
+// ===========================================================
 
 model Listing {
   id       String @id @default(cuid())
@@ -93,10 +104,10 @@ model Listing {
   // Exemple: 38-40/100
   netWeight String?
 
-  // Total stock dyal had lferma
+  // Total stock dyal had listing b KG
   quantityKg Float
 
-  // Stock li mazal disponible
+  // Stock li mazal disponible b KG
   availableKg Float
 
   pricePerKg      Decimal @db.Decimal(12, 2)
@@ -131,6 +142,10 @@ model Listing {
   @@index([status])
 }
 
+// ===========================================================
+// LISTING IMAGE
+// ===========================================================
+
 model ListingImage {
   id        String   @id @default(cuid())
   listingId String
@@ -141,6 +156,10 @@ model ListingImage {
 
   @@index([listingId])
 }
+
+// ===========================================================
+// ORDER
+// ===========================================================
 
 model Order {
   id              String      @id @default(cuid())
@@ -173,6 +192,10 @@ model Order {
   @@index([status])
 }
 
+// ===========================================================
+// WALLET
+// ===========================================================
+
 model Wallet {
   id        String   @id @default(cuid())
   userId    String   @unique
@@ -185,6 +208,10 @@ model Wallet {
 
   @@index([userId])
 }
+
+// ===========================================================
+// WALLET TRANSACTION
+// ===========================================================
 
 model WalletTransaction {
   id        String                  @id @default(cuid())
@@ -208,6 +235,10 @@ model WalletTransaction {
   @@index([status])
 }
 
+// ===========================================================
+// RECHARGE REQUEST
+// ===========================================================
+
 model RechargeRequest {
   id         String                @id @default(cuid())
   userId     String
@@ -225,6 +256,10 @@ model RechargeRequest {
   @@index([status])
 }
 
+// ===========================================================
+// APP SETTINGS
+// ===========================================================
+
 model AppSetting {
   id             String   @id @default(cuid())
   operationFee   Decimal  @default(10) @db.Decimal(12, 2)
@@ -233,6 +268,10 @@ model AppSetting {
   isOrderingOpen Boolean  @default(true)
   updatedAt      DateTime @updatedAt
 }
+
+// ===========================================================
+// CHAT CONVERSATION
+// ===========================================================
 
 model ChatConversation {
   id            String    @id @default(cuid())
@@ -255,6 +294,10 @@ model ChatConversation {
   @@index([listingId])
 }
 
+// ===========================================================
+// CHAT MESSAGE
+// ===========================================================
+
 model ChatMessage {
   id             String   @id @default(cuid())
   conversationId String
@@ -269,6 +312,10 @@ model ChatMessage {
   @@index([conversationId])
   @@index([senderId])
 }
+
+// ===========================================================
+// ORDER TRACKING
+// ===========================================================
 
 model OrderTracking {
   id        String   @id @default(cuid())
@@ -285,6 +332,10 @@ model OrderTracking {
   @@index([orderId])
   @@index([driverId])
 }
+
+// ===========================================================
+// FAVORITE
+// ===========================================================
 
 model Favorite {
   id        String   @id @default(cuid())
@@ -307,18 +358,12 @@ model Favorite {
 model Post {
   id String @id @default(cuid())
 
-  // Admin li create had post
   authorId String
 
-  // Text optional:
-  // hit post y9der ykon image only
   text String?
 
-  // Image optional:
-  // hit post y9der ykon text only
   imageUrl String?
 
-  // Chkon ychof post
   audience PostAudience @default(ALL)
 
   createdAt DateTime @default(now())
@@ -342,8 +387,6 @@ model PasswordResetRequest {
 
   status PasswordResetStatus @default(PENDING)
 
-  // 6-digit code is NEVER stored as plain text.
-  // Only its bcrypt hash is stored here.
   codeHash String?
 
   approvedAt DateTime?
@@ -412,10 +455,6 @@ enum RechargeRequestStatus {
   REJECTED
 }
 
-// ===========================================================
-// POST AUDIENCE
-// ===========================================================
-
 enum PasswordResetStatus {
   PENDING
   APPROVED
@@ -424,12 +463,7 @@ enum PasswordResetStatus {
 }
 
 enum PostAudience {
-  // المربين والموزعين بجوج
   ALL
-
-  // غير المربين
   FARMER
-
-  // غير الموزعين
   DISTRIBUTOR
 }

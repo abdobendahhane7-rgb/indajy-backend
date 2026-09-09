@@ -19,8 +19,16 @@ import {
 } from "../common/decorators/current-user.decorator";
 
 import {
+  CreateFarmDto,
+} from "./dto/create-farm.dto";
+
+import {
   CreateListingDto,
 } from "./dto/create-listing.dto";
+
+import {
+  UpdateFarmDto,
+} from "./dto/update-farm.dto";
 
 import {
   UpdateListingDto,
@@ -33,30 +41,23 @@ import {
 @Controller("listings")
 export class ListingsController {
   constructor(
-    private listingsService:
-      ListingsService,
+    private readonly listingsService: ListingsService,
   ) {}
 
   // =========================================================
   // CREATE LISTING
   // =========================================================
 
-  @UseGuards(
-    JwtAuthGuard,
-  )
+  @UseGuards(JwtAuthGuard)
   @Post()
   createListing(
-    @CurrentUser()
-    user: any,
-
-    @Body()
-    dto: CreateListingDto,
+    @CurrentUser() user: any,
+    @Body() dto: CreateListingDto,
   ) {
-    return this.listingsService
-      .createListing(
-        user.id,
-        dto,
-      );
+    return this.listingsService.createListing(
+      user.id,
+      dto,
+    );
   }
 
   // =========================================================
@@ -64,18 +65,64 @@ export class ListingsController {
   // IMPORTANT: BEFORE :id
   // =========================================================
 
-  @UseGuards(
-    JwtAuthGuard,
-  )
+  @UseGuards(JwtAuthGuard)
   @Get("farms/me")
   getMyFarms(
-    @CurrentUser()
-    user: any,
+    @CurrentUser() user: any,
   ) {
-    return this.listingsService
-      .getMyFarms(
-        user.id,
-      );
+    return this.listingsService.getMyFarms(
+      user.id,
+    );
+  }
+
+  // =========================================================
+  // CREATE FARM
+  // =========================================================
+
+  @UseGuards(JwtAuthGuard)
+  @Post("farms")
+  createFarm(
+    @CurrentUser() user: any,
+    @Body() dto: CreateFarmDto,
+  ) {
+    return this.listingsService.createFarm(
+      user.id,
+      dto,
+    );
+  }
+
+  // =========================================================
+  // UPDATE FARM
+  // =========================================================
+
+  @UseGuards(JwtAuthGuard)
+  @Patch("farms/:farmId")
+  updateFarm(
+    @CurrentUser() user: any,
+    @Param("farmId") farmId: string,
+    @Body() dto: UpdateFarmDto,
+  ) {
+    return this.listingsService.updateFarm(
+      user.id,
+      farmId,
+      dto,
+    );
+  }
+
+  // =========================================================
+  // DELETE FARM
+  // =========================================================
+
+  @UseGuards(JwtAuthGuard)
+  @Delete("farms/:farmId")
+  deleteFarm(
+    @CurrentUser() user: any,
+    @Param("farmId") farmId: string,
+  ) {
+    return this.listingsService.deleteFarm(
+      user.id,
+      farmId,
+    );
   }
 
   // =========================================================
@@ -102,51 +149,41 @@ export class ListingsController {
     @Query("maxDistanceKm")
     maxDistanceKm?: string,
   ) {
-    return this.listingsService
-      .getAllListings({
-        city,
-        category,
-        variant,
+    return this.listingsService.getAllListings({
+      city,
+      category,
+      variant,
 
-        latitude:
-          latitude
-            ? Number(
-                latitude,
-              )
-            : undefined,
+      latitude:
+        latitude !== undefined
+          ? Number(latitude)
+          : undefined,
 
-        longitude:
-          longitude
-            ? Number(
-                longitude,
-              )
-            : undefined,
+      longitude:
+        longitude !== undefined
+          ? Number(longitude)
+          : undefined,
 
-        maxDistanceKm:
-          maxDistanceKm
-            ? Number(
-                maxDistanceKm,
-              )
-            : undefined,
-      });
+      maxDistanceKm:
+        maxDistanceKm !== undefined
+          ? Number(maxDistanceKm)
+          : undefined,
+    });
   }
 
   // =========================================================
   // MY LISTINGS
+  // IMPORTANT: BEFORE :id
   // =========================================================
 
-  @UseGuards(
-    JwtAuthGuard,
-  )
+  @UseGuards(JwtAuthGuard)
   @Get("me")
   getMyListings(
-    @CurrentUser()
-    user: any,
+    @CurrentUser() user: any,
   ) {
-    return this.listingsService
-      .getMyListings(
-        user.id,
-      );
+    return this.listingsService.getMyListings(
+      user.id,
+    );
   }
 
   // =========================================================
@@ -155,82 +192,60 @@ export class ListingsController {
 
   @Get(":id")
   getListingById(
-    @Param("id")
-    id: string,
+    @Param("id") id: string,
   ) {
-    return this.listingsService
-      .getListingById(
-        id,
-      );
+    return this.listingsService.getListingById(
+      id,
+    );
   }
 
   // =========================================================
-  // UPDATE
+  // UPDATE LISTING
   // =========================================================
 
-  @UseGuards(
-    JwtAuthGuard,
-  )
+  @UseGuards(JwtAuthGuard)
   @Patch(":id")
   updateMyListing(
-    @CurrentUser()
-    user: any,
-
-    @Param("id")
-    id: string,
-
-    @Body()
-    dto: UpdateListingDto,
+    @CurrentUser() user: any,
+    @Param("id") id: string,
+    @Body() dto: UpdateListingDto,
   ) {
-    return this.listingsService
-      .updateMyListing(
-        user.id,
-        id,
-        dto,
-      );
+    return this.listingsService.updateMyListing(
+      user.id,
+      id,
+      dto,
+    );
   }
 
   // =========================================================
-  // DEACTIVATE
+  // DEACTIVATE LISTING
   // =========================================================
 
-  @UseGuards(
-    JwtAuthGuard,
-  )
+  @UseGuards(JwtAuthGuard)
   @Patch(":id/deactivate")
   deactivateMyListing(
-    @CurrentUser()
-    user: any,
-
-    @Param("id")
-    id: string,
+    @CurrentUser() user: any,
+    @Param("id") id: string,
   ) {
-    return this.listingsService
-      .deactivateMyListing(
-        user.id,
-        id,
-      );
+    return this.listingsService.deactivateMyListing(
+      user.id,
+      id,
+    );
   }
 
   // =========================================================
-  // DELETE
+  // DELETE LISTING
   // =========================================================
 
-  @UseGuards(
-    JwtAuthGuard,
-  )
+  @UseGuards(JwtAuthGuard)
   @Delete(":id")
   deleteMyListing(
-    @CurrentUser()
-    user: any,
-
-    @Param("id")
-    id: string,
+    @CurrentUser() user: any,
+    @Param("id") id: string,
   ) {
-    return this.listingsService
-      .deleteMyListing(
-        user.id,
-        id,
-      );
+    return this.listingsService.deleteMyListing(
+      user.id,
+      id,
+    );
   }
 }

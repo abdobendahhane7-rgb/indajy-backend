@@ -16,8 +16,16 @@ import {
 } from "../prisma/prisma.service";
 
 import {
+  CreateFarmDto,
+} from "./dto/create-farm.dto";
+
+import {
   CreateListingDto,
 } from "./dto/create-listing.dto";
+
+import {
+  UpdateFarmDto,
+} from "./dto/update-farm.dto";
 
 import {
   UpdateListingDto,
@@ -26,22 +34,23 @@ import {
 @Injectable()
 export class ListingsService {
   constructor(
-    private prisma:
-      PrismaService,
+    private readonly prisma: PrismaService,
   ) {}
 
-  private allowedProducts = [
+  private readonly allowedProducts = [
     "دجاج اللحم",
     "الديك الرومي",
   ];
+
+  // =========================================================
+  // HELPERS
+  // =========================================================
 
   private roundTo2(
     value: number,
   ) {
     return Number(
-      value.toFixed(
-        2,
-      ),
+      value.toFixed(2),
     );
   }
 
@@ -50,9 +59,16 @@ export class ListingsService {
     pricePerKg: number,
   ) {
     return this.roundTo2(
-      quantityKg *
-        pricePerKg,
+      quantityKg * pricePerKg,
     );
+  }
+
+  private toRadians(
+    value: number,
+  ) {
+    return (
+      value * Math.PI
+    ) / 180;
   }
 
   private calculateDistanceKm(
@@ -101,9 +117,7 @@ export class ListingsService {
     const c =
       2 *
       Math.atan2(
-        Math.sqrt(
-          a,
-        ),
+        Math.sqrt(a),
         Math.sqrt(
           1 - a,
         ),
@@ -113,15 +127,6 @@ export class ListingsService {
       earthRadiusKm *
         c,
     );
-  }
-
-  private toRadians(
-    value: number,
-  ) {
-    return (
-      value *
-      Math.PI
-    ) / 180;
   }
 
   // =========================================================
@@ -173,9 +178,7 @@ export class ListingsService {
     }
 
     if (
-      netWeight
-        .trim()
-        .length >
+      netWeight.trim().length >
       50
     ) {
       throw new BadRequestException(
@@ -185,61 +188,16 @@ export class ListingsService {
   }
 
   // =========================================================
-  // HIDE PRIVATE FARM INFORMATION
+  // GET FARMER
   // =========================================================
 
-  private hidePrivateFarmInfo(
-    listing: any,
-  ) {
-    if (!listing) {
-      return listing;
-    }
-
-    return {
-      ...listing,
-
-      address:
-        null,
-
-      latitude:
-        null,
-
-      longitude:
-        null,
-
-      farmLink:
-        null,
-
-      farmer:
-        listing.farmer
-          ? {
-              ...listing.farmer,
-
-              phone:
-                null,
-
-              latitude:
-                null,
-
-              longitude:
-                null,
-            }
-          : null,
-    };
-  }
-
-  // =========================================================
-  // GET MY FARMS
-  // =========================================================
-
-  async getMyFarms(
+  private async getFarmer(
     userId: string,
   ) {
     const user =
       await this.prisma.user.findUnique({
         where: {
-          id:
-            userId,
+          id: userId,
         },
       });
 
@@ -258,6 +216,57 @@ export class ListingsService {
       );
     }
 
+    return user;
+  }
+
+  // =========================================================
+  // HIDE PRIVATE FARM INFORMATION
+  // =========================================================
+
+  private hidePrivateFarmInfo(
+    listing: any,
+  ) {
+    if (!listing) {
+      return listing;
+    }
+
+    return {
+      ...listing,
+
+      address: null,
+
+      latitude: null,
+
+      longitude: null,
+
+      farmLink: null,
+
+      farmer:
+        listing.farmer
+          ? {
+              ...listing.farmer,
+
+              phone: null,
+
+              latitude: null,
+
+              longitude: null,
+            }
+          : null,
+    };
+  }
+
+  // =========================================================
+  // GET MY FARMS
+  // =========================================================
+
+  async getMyFarms(
+    userId: string,
+  ) {
+    await this.getFarmer(
+      userId,
+    );
+
     return this.prisma.farm.findMany({
       where: {
         farmerId:
@@ -265,14 +274,22 @@ export class ListingsService {
       },
 
       select: {
-        id:
-          true,
+        id: true,
 
-        name:
-          true,
+        name: true,
 
-        createdAt:
-          true,
+        stockTons: true,
+
+        createdAt: true,
+
+        updatedAt: true,
+
+        _count: {
+          select: {
+            listings:
+              true,
+          },
+        },
       },
 
       orderBy: {
@@ -280,6 +297,308 @@ export class ListingsService {
           "asc",
       },
     });
+  }
+
+  // =========================================================
+  // CREATE FARM
+  // =========================================================
+
+  async createFarm(
+    userId: string,
+    dto: CreateFarmDto,
+  ) {
+    await this.getFarmer(
+      userId,
+    );
+
+    const name =
+      String(
+        dto.name ?? "",
+      ).trim();
+
+    if (!name) {
+      throw new BadRequestException(
+        "Farm name is required",
+      );
+    }
+
+    const stockTons =
+      Number(
+        dto.stockTons,
+      );
+
+    if (
+      !Number.isFinite(
+        stockTons,
+      ) ||
+      stockTons < 0
+    ) {
+      throw new BadRequestException(
+        "Invalid farm stock",
+      );
+    }
+
+    const farms =
+      await this.prisma.farm.findMany({
+        where: {
+          farmerId:
+            userId,
+        },
+
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+
+    const duplicate =
+      farms.some(
+        (farm) =>
+          farm.name
+            .trim()
+            .toLowerCase() ===
+          name
+            .trim()
+            .toLowerCase(),
+      );
+
+    if (duplicate) {
+      throw new BadRequestException(
+        "Farm name already exists",
+      );
+    }
+
+    return this.prisma.farm.create({
+      data: {
+        farmerId:
+          userId,
+
+        name,
+
+        stockTons:
+          this.roundTo2(
+            stockTons,
+          ),
+      },
+
+      select: {
+        id: true,
+
+        name: true,
+
+        stockTons: true,
+
+        createdAt: true,
+
+        updatedAt: true,
+      },
+    });
+  }
+
+  // =========================================================
+  // UPDATE FARM
+  // =========================================================
+
+  async updateFarm(
+    userId: string,
+    farmId: string,
+    dto: UpdateFarmDto,
+  ) {
+    await this.getFarmer(
+      userId,
+    );
+
+    const farm =
+      await this.prisma.farm.findFirst({
+        where: {
+          id:
+            farmId,
+
+          farmerId:
+            userId,
+        },
+      });
+
+    if (!farm) {
+      throw new NotFoundException(
+        "Farm not found",
+      );
+    }
+
+    let nextName:
+      string | undefined =
+      undefined;
+
+    if (
+      dto.name !== undefined
+    ) {
+      nextName =
+        dto.name.trim();
+
+      if (!nextName) {
+        throw new BadRequestException(
+          "Farm name is required",
+        );
+      }
+
+      const otherFarms =
+        await this.prisma.farm.findMany({
+          where: {
+            farmerId:
+              userId,
+
+            id: {
+              not:
+                farmId,
+            },
+          },
+
+          select: {
+            name: true,
+          },
+        });
+
+      const duplicate =
+        otherFarms.some(
+          (item) =>
+            item.name
+              .trim()
+              .toLowerCase() ===
+            nextName!
+              .trim()
+              .toLowerCase(),
+        );
+
+      if (duplicate) {
+        throw new BadRequestException(
+          "Farm name already exists",
+        );
+      }
+    }
+
+    let nextStock:
+      number | undefined =
+      undefined;
+
+    if (
+      dto.stockTons !==
+      undefined
+    ) {
+      nextStock =
+        Number(
+          dto.stockTons,
+        );
+
+      if (
+        !Number.isFinite(
+          nextStock,
+        ) ||
+        nextStock < 0
+      ) {
+        throw new BadRequestException(
+          "Invalid farm stock",
+        );
+      }
+
+      nextStock =
+        this.roundTo2(
+          nextStock,
+        );
+    }
+
+    return this.prisma.farm.update({
+      where: {
+        id:
+          farmId,
+      },
+
+      data: {
+        name:
+          nextName,
+
+        stockTons:
+          nextStock,
+      },
+
+      select: {
+        id: true,
+
+        name: true,
+
+        stockTons: true,
+
+        createdAt: true,
+
+        updatedAt: true,
+
+        _count: {
+          select: {
+            listings:
+              true,
+          },
+        },
+      },
+    });
+  }
+
+  // =========================================================
+  // DELETE FARM
+  // =========================================================
+
+  async deleteFarm(
+    userId: string,
+    farmId: string,
+  ) {
+    await this.getFarmer(
+      userId,
+    );
+
+    const farm =
+      await this.prisma.farm.findFirst({
+        where: {
+          id:
+            farmId,
+
+          farmerId:
+            userId,
+        },
+
+        include: {
+          _count: {
+            select: {
+              listings:
+                true,
+            },
+          },
+        },
+      });
+
+    if (!farm) {
+      throw new NotFoundException(
+        "Farm not found",
+      );
+    }
+
+    if (
+      farm._count.listings >
+      0
+    ) {
+      throw new BadRequestException(
+        "Cannot delete a farm that has listings",
+      );
+    }
+
+    await this.prisma.farm.delete({
+      where: {
+        id:
+          farmId,
+      },
+    });
+
+    return {
+      message:
+        "Farm deleted successfully",
+    };
   }
 
   // =========================================================
@@ -439,34 +758,20 @@ export class ListingsService {
       include: {
         farm: {
           select: {
-            id:
-              true,
-
-            name:
-              true,
+            id: true,
+            name: true,
+            stockTons: true,
           },
         },
 
         farmer: {
           select: {
-            id:
-              true,
-
-            fullName:
-              true,
-
-            phone:
-              true,
-
-            city:
-              true,
-
-            latitude:
-              true,
-
-            longitude:
-              true,
-
+            id: true,
+            fullName: true,
+            phone: true,
+            city: true,
+            latitude: true,
+            longitude: true,
             approvalStatus:
               true,
           },
@@ -517,8 +822,7 @@ export class ListingsService {
             ListingStatus.ACTIVE,
 
           availableKg: {
-            gt:
-              0,
+            gt: 0,
           },
 
           city:
@@ -537,34 +841,19 @@ export class ListingsService {
         include: {
           farm: {
             select: {
-              id:
-                true,
-
-              name:
-                true,
+              id: true,
+              name: true,
             },
           },
 
           farmer: {
             select: {
-              id:
-                true,
-
-              fullName:
-                true,
-
-              phone:
-                true,
-
-              city:
-                true,
-
-              latitude:
-                true,
-
-              longitude:
-                true,
-
+              id: true,
+              fullName: true,
+              phone: true,
+              city: true,
+              latitude: true,
+              longitude: true,
               approvalStatus:
                 true,
             },
@@ -587,9 +876,7 @@ export class ListingsService {
         undefined
     ) {
       return listings.map(
-        (
-          listing,
-        ) =>
+        (listing) =>
           this.hidePrivateFarmInfo(
             listing,
           ),
@@ -598,9 +885,7 @@ export class ListingsService {
 
     const withDistance =
       listings.map(
-        (
-          listing,
-        ) => {
+        (listing) => {
           const distanceKm =
             this.calculateDistanceKm(
               query.latitude!,
@@ -620,9 +905,7 @@ export class ListingsService {
       query.maxDistanceKm !==
       undefined
         ? withDistance.filter(
-            (
-              item,
-            ) =>
+            (item) =>
               item.distanceKm <=
               query.maxDistanceKm!,
           )
@@ -630,17 +913,12 @@ export class ListingsService {
 
     return filtered
       .sort(
-        (
-          a,
-          b,
-        ) =>
+        (a, b) =>
           a.distanceKm -
           b.distanceKm,
       )
       .map(
-        (
-          listing,
-        ) =>
+        (listing) =>
           this.hidePrivateFarmInfo(
             listing,
           ),
@@ -663,11 +941,9 @@ export class ListingsService {
       include: {
         farm: {
           select: {
-            id:
-              true,
-
-            name:
-              true,
+            id: true,
+            name: true,
+            stockTons: true,
           },
         },
 
@@ -698,34 +974,19 @@ export class ListingsService {
         include: {
           farm: {
             select: {
-              id:
-                true,
-
-              name:
-                true,
+              id: true,
+              name: true,
             },
           },
 
           farmer: {
             select: {
-              id:
-                true,
-
-              fullName:
-                true,
-
-              phone:
-                true,
-
-              city:
-                true,
-
-              latitude:
-                true,
-
-              longitude:
-                true,
-
+              id: true,
+              fullName: true,
+              phone: true,
+              city: true,
+              latitude: true,
+              longitude: true,
               approvalStatus:
                 true,
             },
@@ -804,8 +1065,10 @@ export class ListingsService {
       );
 
     if (
-      quantityKg <= 0 ||
-      pricePerKg <= 0
+      quantityKg <=
+        0 ||
+      pricePerKg <=
+        0
     ) {
       throw new BadRequestException(
         "Quantity and price must be greater than 0",
@@ -890,33 +1153,20 @@ export class ListingsService {
       include: {
         farm: {
           select: {
-            id:
-              true,
-
-            name:
-              true,
+            id: true,
+            name: true,
+            stockTons: true,
           },
         },
 
         farmer: {
           select: {
-            id:
-              true,
-
-            fullName:
-              true,
-
-            phone:
-              true,
-
-            city:
-              true,
-
-            latitude:
-              true,
-
-            longitude:
-              true,
+            id: true,
+            fullName: true,
+            phone: true,
+            city: true,
+            latitude: true,
+            longitude: true,
           },
         },
 
