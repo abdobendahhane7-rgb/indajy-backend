@@ -77,9 +77,27 @@ export class AdminController {
     );
   }
 
-  // DELETE USER
   @Delete("users/:id")
   deleteUser(@Param("id") id: string) {
     return this.adminService.deleteUser(id);
+  }
+
+  // =========================================================
+  // PASSWORD RESET REQUESTS
+  // =========================================================
+
+  @Get("password-reset-requests")
+  getPasswordResetRequests() {
+    return this.adminService.getPasswordResetRequests();
+  }
+
+  @Patch("password-reset-requests/:id/approve")
+  approvePasswordReset(@Param("id") id: string) {
+    return this.adminService.approvePasswordReset(id);
+  }
+
+  @Patch("password-reset-requests/:id/reject")
+  rejectPasswordReset(@Param("id") id: string) {
+    return this.adminService.rejectPasswordReset(id);
   }
 }

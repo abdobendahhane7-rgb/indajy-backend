@@ -41,6 +41,9 @@ model User {
   // =========================================================
 
   adminPosts Post[] @relation("AdminPosts")
+
+  // Password reset request (free admin approval flow)
+  passwordResetRequest PasswordResetRequest?
 }
 
 model Farm {
@@ -329,6 +332,34 @@ model Post {
 }
 
 // ===========================================================
+// PASSWORD RESET REQUESTS
+// ===========================================================
+
+model PasswordResetRequest {
+  id String @id @default(cuid())
+
+  userId String @unique
+
+  status PasswordResetStatus @default(PENDING)
+
+  // 6-digit code is NEVER stored as plain text.
+  // Only its bcrypt hash is stored here.
+  codeHash String?
+
+  approvedAt DateTime?
+  expiresAt  DateTime?
+  usedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ===========================================================
 // ENUMS
 // ===========================================================
 
@@ -384,6 +415,13 @@ enum RechargeRequestStatus {
 // ===========================================================
 // POST AUDIENCE
 // ===========================================================
+
+enum PasswordResetStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  USED
+}
 
 enum PostAudience {
   // المربين والموزعين بجوج

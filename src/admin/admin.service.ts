@@ -6,11 +6,14 @@ import {
 
 import {
   ApprovalStatus,
+  PasswordResetStatus,
   WalletTransactionStatus,
   WalletTransactionType,
 } from "@prisma/client";
 
 import { PrismaService } from "../prisma/prisma.service";
+import * as bcrypt from "bcrypt";
+import { randomInt } from "crypto";
 
 @Injectable()
 export class AdminService {
@@ -449,6 +452,136 @@ export class AdminService {
       message:
           "User deleted successfully",
     };
+  }
+
+  // =========================================================
+  // PASSWORD RESET REQUESTS
+  // =========================================================
+
+  async getPasswordResetRequests() {
+    return this.prisma.passwordResetRequest.findMany({
+      orderBy: {
+        updatedAt: "desc",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            role: true,
+            approvalStatus: true,
+            isActive: true,
+            city: true,
+          },
+        },
+      },
+    });
+  }
+
+  async approvePasswordReset(id: string) {
+    const request =
+      await this.prisma.passwordResetRequest.findUnique({
+        where: { id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              phone: true,
+              role: true,
+              approvalStatus: true,
+              isActive: true,
+            },
+          },
+        },
+      });
+
+    if (!request) {
+      throw new NotFoundException(
+        "Password reset request not found",
+      );
+    }
+
+    if (request.user.role === "ADMIN") {
+      throw new BadRequestException(
+        "Admin password cannot be reset from this flow",
+      );
+    }
+
+    const code = randomInt(100000, 1000000).toString();
+    const codeHash = await bcrypt.hash(code, 10);
+
+    const approvedAt = new Date();
+    const expiresAt = new Date(
+      approvedAt.getTime() + 30 * 60 * 1000,
+    );
+
+    const updated =
+      await this.prisma.passwordResetRequest.update({
+        where: { id },
+        data: {
+          status: PasswordResetStatus.APPROVED,
+          codeHash,
+          approvedAt,
+          expiresAt,
+          usedAt: null,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              phone: true,
+              role: true,
+            },
+          },
+        },
+      });
+
+    // IMPORTANT:
+    // code is returned only in this approve response.
+    // Database stores only bcrypt hash.
+    return {
+      message: "Password reset approved",
+      code,
+      expiresAt,
+      request: updated,
+    };
+  }
+
+  async rejectPasswordReset(id: string) {
+    const request =
+      await this.prisma.passwordResetRequest.findUnique({
+        where: { id },
+      });
+
+    if (!request) {
+      throw new NotFoundException(
+        "Password reset request not found",
+      );
+    }
+
+    return this.prisma.passwordResetRequest.update({
+      where: { id },
+      data: {
+        status: PasswordResetStatus.REJECTED,
+        codeHash: null,
+        approvedAt: null,
+        expiresAt: null,
+        usedAt: null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            role: true,
+          },
+        },
+      },
+    });
   }
 
   private last7Days() {
